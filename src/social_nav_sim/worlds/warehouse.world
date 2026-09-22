@@ -1,0 +1,140 @@
+<?xml version="1.0"?>
+<!-- SocialNav warehouse scene (Gazebo Classic SDF). A wide central cross-aisle (y in
+     [-1.6, 1.6]) running east to a loading dock, flanked north and south by pallet-rack rows
+     broken by cross-aisles. Racks are 1.8 m tall (well above the ~0.4 m lidar) so they occlude
+     and constrain. Robot spawns at the world origin (map == odom == world). Primitives only,
+     no meshes, no online model DB. -->
+<sdf version="1.6">
+  <world name="warehouse_world">
+
+    <include><uri>model://sun</uri></include>
+    <include><uri>model://ground_plane</uri></include>
+
+    <light name="fill" type="directional">
+      <pose>4 0 9 0 0 0</pose>
+      <diffuse>0.55 0.55 0.55 1</diffuse>
+      <specular>0.1 0.1 0.1 1</specular>
+      <direction>-0.2 0.1 -1.0</direction>
+      <cast_shadows>false</cast_shadows>
+    </light>
+
+    <physics type="ode">
+      <max_step_size>0.005</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>200</real_time_update_rate>
+    </physics>
+
+    <!-- Lets the pedestrian / robot-agent managers teleport bodies. -->
+    <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
+      <ros><namespace>/gazebo</namespace></ros>
+      <update_rate>20.0</update_rate>
+    </plugin>
+
+    <!-- ===================== Perimeter walls ===================== -->
+    <model name="wall_west"><static>true</static><link name="l">
+      <collision name="c"><pose>-1.0 0 1.0 0 0 0</pose>
+        <geometry><box><size>0.2 8.0 2.0</size></box></geometry></collision>
+      <visual name="v"><pose>-1.0 0 1.0 0 0 0</pose>
+        <geometry><box><size>0.2 8.0 2.0</size></box></geometry>
+        <material><ambient>0.5 0.52 0.55 1</ambient><diffuse>0.5 0.52 0.55 1</diffuse></material>
+      </visual></link></model>
+    <model name="wall_north"><static>true</static><link name="l">
+      <collision name="c"><pose>5.0 3.6 1.0 0 0 0</pose>
+        <geometry><box><size>12.0 0.2 2.0</size></box></geometry></collision>
+      <visual name="v"><pose>5.0 3.6 1.0 0 0 0</pose>
+        <geometry><box><size>12.0 0.2 2.0</size></box></geometry>
+        <material><ambient>0.5 0.52 0.55 1</ambient><diffuse>0.5 0.52 0.55 1</diffuse></material>
+      </visual></link></model>
+    <model name="wall_south"><static>true</static><link name="l">
+      <collision name="c"><pose>5.0 -3.6 1.0 0 0 0</pose>
+        <geometry><box><size>12.0 0.2 2.0</size></box></geometry></collision>
+      <visual name="v"><pose>5.0 -3.6 1.0 0 0 0</pose>
+        <geometry><box><size>12.0 0.2 2.0</size></box></geometry>
+        <material><ambient>0.5 0.52 0.55 1</ambient><diffuse>0.5 0.52 0.55 1</diffuse></material>
+      </visual></link></model>
+
+    <!-- ===================== Loading dock (east end) ===================== -->
+    <model name="dock_wall"><static>true</static><link name="l">
+      <collision name="c"><pose>10.4 0 1.25 0 0 0</pose>
+        <geometry><box><size>0.4 7.2 2.5</size></box></geometry></collision>
+      <visual name="v"><pose>10.4 0 1.25 0 0 0</pose>
+        <geometry><box><size>0.4 7.2 2.5</size></box></geometry>
+        <material><ambient>0.32 0.34 0.38 1</ambient><diffuse>0.32 0.34 0.38 1</diffuse></material>
+      </visual></link></model>
+    <model name="dock_door"><static>true</static><link name="l">
+      <visual name="v"><pose>10.19 0 1.1 0 0 0</pose>
+        <geometry><box><size>0.05 1.8 2.2</size></box></geometry>
+        <material><ambient>0.85 0.75 0.20 1</ambient><diffuse>0.85 0.75 0.20 1</diffuse></material>
+      </visual></link></model>
+
+    <!-- ===================== North pallet racks (y band 1.6..3.2) ===================== -->
+    <model name="rack_n1"><static>true</static><link name="l">
+      <collision name="c"><pose>2.0 2.4 0.9 0 0 0</pose>
+        <geometry><box><size>2.0 1.6 1.8</size></box></geometry></collision>
+      <visual name="v"><pose>2.0 2.4 0.9 0 0 0</pose>
+        <geometry><box><size>2.0 1.6 1.8</size></box></geometry>
+        <material><ambient>0.24 0.33 0.48 1</ambient><diffuse>0.24 0.33 0.48 1</diffuse></material>
+      </visual></link></model>
+    <model name="rack_n2"><static>true</static><link name="l">
+      <collision name="c"><pose>5.0 2.4 0.9 0 0 0</pose>
+        <geometry><box><size>2.0 1.6 1.8</size></box></geometry></collision>
+      <visual name="v"><pose>5.0 2.4 0.9 0 0 0</pose>
+        <geometry><box><size>2.0 1.6 1.8</size></box></geometry>
+        <material><ambient>0.24 0.33 0.48 1</ambient><diffuse>0.24 0.33 0.48 1</diffuse></material>
+      </visual></link></model>
+    <model name="rack_n3"><static>true</static><link name="l">
+      <collision name="c"><pose>8.0 2.4 0.9 0 0 0</pose>
+        <geometry><box><size>2.0 1.6 1.8</size></box></geometry></collision>
+      <visual name="v"><pose>8.0 2.4 0.9 0 0 0</pose>
+        <geometry><box><size>2.0 1.6 1.8</size></box></geometry>
+        <material><ambient>0.24 0.33 0.48 1</ambient><diffuse>0.24 0.33 0.48 1</diffuse></material>
+      </visual></link></model>
+
+    <!-- ===================== South pallet racks (y band -3.2..-1.6) ===================== -->
+    <model name="rack_s1"><static>true</static><link name="l">
+      <collision name="c"><pose>2.0 -2.4 0.9 0 0 0</pose>
+        <geometry><box><size>2.0 1.6 1.8</size></box></geometry></collision>
+      <visual name="v"><pose>2.0 -2.4 0.9 0 0 0</pose>
+        <geometry><box><size>2.0 1.6 1.8</size></box></geometry>
+        <material><ambient>0.24 0.33 0.48 1</ambient><diffuse>0.24 0.33 0.48 1</diffuse></material>
+      </visual></link></model>
+    <model name="rack_s2"><static>true</static><link name="l">
+      <collision name="c"><pose>5.0 -2.4 0.9 0 0 0</pose>
+        <geometry><box><size>2.0 1.6 1.8</size></box></geometry></collision>
+      <visual name="v"><pose>5.0 -2.4 0.9 0 0 0</pose>
+        <geometry><box><size>2.0 1.6 1.8</size></box></geometry>
+        <material><ambient>0.24 0.33 0.48 1</ambient><diffuse>0.24 0.33 0.48 1</diffuse></material>
+      </visual></link></model>
+    <model name="rack_s3"><static>true</static><link name="l">
+      <collision name="c"><pose>8.0 -2.4 0.9 0 0 0</pose>
+        <geometry><box><size>2.0 1.6 1.8</size></box></geometry></collision>
+      <visual name="v"><pose>8.0 -2.4 0.9 0 0 0</pose>
+        <geometry><box><size>2.0 1.6 1.8</size></box></geometry>
+        <material><ambient>0.24 0.33 0.48 1</ambient><diffuse>0.24 0.33 0.48 1</diffuse></material>
+      </visual></link></model>
+
+    <!-- Structural columns near the rack ends (occluders at aisle mouths). -->
+    <model name="col_1"><static>true</static><link name="l">
+      <collision name="c"><pose>3.5 1.75 1.5 0 0 0</pose>
+        <geometry><box><size>0.3 0.3 3.0</size></box></geometry></collision>
+      <visual name="v"><pose>3.5 1.75 1.5 0 0 0</pose>
+        <geometry><box><size>0.3 0.3 3.0</size></box></geometry>
+        <material><ambient>0.4 0.4 0.42 1</ambient><diffuse>0.4 0.4 0.42 1</diffuse></material>
+      </visual></link></model>
+    <model name="col_2"><static>true</static><link name="l">
+      <collision name="c"><pose>6.5 -1.75 1.5 0 0 0</pose>
+        <geometry><box><size>0.3 0.3 3.0</size></box></geometry></collision>
+      <visual name="v"><pose>6.5 -1.75 1.5 0 0 0</pose>
+        <geometry><box><size>0.3 0.3 3.0</size></box></geometry>
+        <material><ambient>0.4 0.4 0.42 1</ambient><diffuse>0.4 0.4 0.42 1</diffuse></material>
+      </visual></link></model>
+
+    <!-- Charging pad (visual only) near the west entrance. -->
+    <model name="charging_pad"><static>true</static><link name="l">
+      <visual name="v"><pose>0.6 1.2 0.01 0 0 0</pose>
+        <geometry><box><size>0.8 0.8 0.02</size></box></geometry>
+        <material><ambient>0.15 0.45 0.25 1</ambient><diffuse>0.15 0.45 0.25 1</diffuse></material>
+      </visual></link></model>
+
+  </world>
+</sdf>

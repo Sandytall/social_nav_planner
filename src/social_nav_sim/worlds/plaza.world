@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<!-- SocialNav open plaza / campus scene (Gazebo Classic SDF). A large, mostly open space for
+     long-range navigation with sparse obstacles: two perimeter buildings, trees (trunk +
+     canopy), benches and planters scattered near the route. Robot crosses ~9 m to the far
+     side. Trunks/benches exceed the ~0.4 m lidar. Primitives only, no meshes, no online DB. -->
+<sdf version="1.6">
+  <world name="plaza_world">
+    <include><uri>model://sun</uri></include>
+    <include><uri>model://ground_plane</uri></include>
+    <light name="fill" type="directional"><pose>4 0 10 0 0 0</pose>
+      <diffuse>0.7 0.7 0.68 1</diffuse><specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.1 0.2 -1.0</direction><cast_shadows>false</cast_shadows></light>
+    <physics type="ode"><max_step_size>0.005</max_step_size>
+      <real_time_factor>1.0</real_time_factor><real_time_update_rate>200</real_time_update_rate></physics>
+    <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
+      <ros><namespace>/gazebo</namespace></ros><update_rate>20.0</update_rate></plugin>
+
+    <!-- Perimeter buildings (well off the central route) -->
+    <model name="building_ne"><static>true</static><link name="l">
+      <collision name="c"><pose>7.5 4.5 1.75 0 0 0</pose><geometry><box><size>3.5 3.0 3.5</size></box></geometry></collision>
+      <visual name="v"><pose>7.5 4.5 1.75 0 0 0</pose><geometry><box><size>3.5 3.0 3.5</size></box></geometry>
+        <material><ambient>0.52 0.50 0.48 1</ambient><diffuse>0.52 0.50 0.48 1</diffuse></material></visual></link></model>
+    <model name="building_sw"><static>true</static><link name="l">
+      <collision name="c"><pose>2.5 -4.6 1.5 0 0 0</pose><geometry><box><size>3.0 2.6 3.0</size></box></geometry></collision>
+      <visual name="v"><pose>2.5 -4.6 1.5 0 0 0</pose><geometry><box><size>3.0 2.6 3.0</size></box></geometry>
+        <material><ambient>0.50 0.48 0.46 1</ambient><diffuse>0.50 0.48 0.46 1</diffuse></material></visual></link></model>
+
+    <!-- Trees: thin trunk (sensed) + canopy (visual only) -->
+    <model name="tree_1"><static>true</static><link name="l">
+      <collision name="c"><pose>3.0 1.6 1.0 0 0 0</pose><geometry><cylinder><radius>0.22</radius><length>2.0</length></cylinder></geometry></collision>
+      <visual name="trunk"><pose>3.0 1.6 1.0 0 0 0</pose><geometry><cylinder><radius>0.22</radius><length>2.0</length></cylinder></geometry>
+        <material><ambient>0.35 0.26 0.16 1</ambient><diffuse>0.35 0.26 0.16 1</diffuse></material></visual>
+      <visual name="canopy"><pose>3.0 1.6 2.6 0 0 0</pose><geometry><sphere><radius>1.0</radius></sphere></geometry>
+        <material><ambient>0.20 0.42 0.22 1</ambient><diffuse>0.20 0.42 0.22 1</diffuse></material></visual></link></model>
+    <model name="tree_2"><static>true</static><link name="l">
+      <collision name="c"><pose>6.0 -1.7 1.0 0 0 0</pose><geometry><cylinder><radius>0.22</radius><length>2.0</length></cylinder></geometry></collision>
+      <visual name="trunk"><pose>6.0 -1.7 1.0 0 0 0</pose><geometry><cylinder><radius>0.22</radius><length>2.0</length></cylinder></geometry>
+        <material><ambient>0.35 0.26 0.16 1</ambient><diffuse>0.35 0.26 0.16 1</diffuse></material></visual>
+      <visual name="canopy"><pose>6.0 -1.7 2.6 0 0 0</pose><geometry><sphere><radius>1.0</radius></sphere></geometry>
+        <material><ambient>0.20 0.42 0.22 1</ambient><diffuse>0.20 0.42 0.22 1</diffuse></material></visual></link></model>
+    <model name="tree_3"><static>true</static><link name="l">
+      <collision name="c"><pose>8.5 2.2 1.0 0 0 0</pose><geometry><cylinder><radius>0.22</radius><length>2.0</length></cylinder></geometry></collision>
+      <visual name="trunk"><pose>8.5 2.2 1.0 0 0 0</pose><geometry><cylinder><radius>0.22</radius><length>2.0</length></cylinder></geometry>
+        <material><ambient>0.35 0.26 0.16 1</ambient><diffuse>0.35 0.26 0.16 1</diffuse></material></visual>
+      <visual name="canopy"><pose>8.5 2.2 2.6 0 0 0</pose><geometry><sphere><radius>1.0</radius></sphere></geometry>
+        <material><ambient>0.20 0.42 0.22 1</ambient><diffuse>0.20 0.42 0.22 1</diffuse></material></visual></link></model>
+
+    <!-- Benches + a planter near the route -->
+    <model name="bench_1"><static>true</static><link name="l">
+      <collision name="c"><pose>4.5 0.9 0.25 0 0 0</pose><geometry><box><size>1.4 0.4 0.5</size></box></geometry></collision>
+      <visual name="v"><pose>4.5 0.9 0.25 0 0 0</pose><geometry><box><size>1.4 0.4 0.5</size></box></geometry>
+        <material><ambient>0.45 0.40 0.32 1</ambient><diffuse>0.45 0.40 0.32 1</diffuse></material></visual></link></model>
+    <model name="planter_1"><static>true</static><link name="l">
+      <collision name="c"><pose>5.5 -0.9 0.3 0 0 0</pose><geometry><cylinder><radius>0.5</radius><length>0.6</length></cylinder></geometry></collision>
+      <visual name="v"><pose>5.5 -0.9 0.3 0 0 0</pose><geometry><cylinder><radius>0.5</radius><length>0.6</length></cylinder></geometry>
+        <material><ambient>0.40 0.36 0.30 1</ambient><diffuse>0.40 0.36 0.30 1</diffuse></material></visual></link></model>
+  </world>
+</sdf>

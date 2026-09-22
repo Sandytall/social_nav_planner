@@ -109,6 +109,8 @@ class PedestrianManager(Node):
         self.declare_parameter("robot_start", [0.0, 0.0])
         self.declare_parameter("robot_keepout", 1.5)
         self.declare_parameter("crossing_x", 5.5)
+        self.declare_parameter("crossing_north", 2.2)
+        self.declare_parameter("crossing_south", -3.0)
         self.declare_parameter("obstacles", _DEFAULT_OBSTACLES)
         # Gazebo world coords of the map origin (the robot's spawn pose). The urban launch
         # spawns the robot at the world origin, so the default is identity: world == map.
@@ -133,6 +135,8 @@ class PedestrianManager(Node):
             group_size=gp("group_size").get_parameter_value().integer_value,
             group_spacing=gp("group_spacing").get_parameter_value().double_value,
             crossing_x=gp("crossing_x").get_parameter_value().double_value,
+            crossing_north=gp("crossing_north").get_parameter_value().double_value,
+            crossing_south=gp("crossing_south").get_parameter_value().double_value,
         )
         self.people = plan_pedestrians(self.cfg)
         self.get_logger().info(

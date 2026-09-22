@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """SocialNav simulation control panel.
 
-A local web app to run the SocialNav simulation and its benchmarks without remembering env
-vars and launch arguments. Two tabs:
+A local web app to run the SocialNav simulation suite and its benchmarks without remembering
+env vars and launch arguments. Two tabs:
 
-  * Launch    - pick environment, scenario, people, robots, sensor noise, view and goal,
-                then Launch / Stop a live Gazebo demo.
-  * Benchmarks- run a headless benchmark sweep (optionally comparing planners) and open the
-                generated full HTML report in the browser.
+  * Launch     - pick environment (urban/factory/warehouse/hospital/office/plaza), scenario
+                 type, difficulty, robots, sensor and view, then Launch / Stop a live demo
+                 (driven by the environment/scenario registry via run_env_demo.sh).
+  * Benchmarks - run a headless benchmark sweep (optionally comparing planners) and open the
+                 generated full HTML report in the browser.
 
-It shells out to the existing run scripts and the social-nav-benchmark CLI, which already
-handle the ROS/Gazebo environment, the NVIDIA offload, teardown and goal send.
+Shells out to the existing scripts / the social-nav-benchmark CLI, which handle the
+ROS/Gazebo environment, NVIDIA offload, teardown and goal send.
 
     python3 scripts/sim_control_panel.py        # then open http://127.0.0.1:8080
 
@@ -31,20 +32,21 @@ SCRIPTS = os.path.join(WS, "scripts")
 RESULTS_ROOT = os.path.expanduser("~/social_nav_results")
 LOG_PATH = "/tmp/social_nav_sim_panel.log"
 
-# Options mirror the real launch scenarios and installed controllers.
-URBAN_SCENARIOS = [
-    "empty", "single_crossing", "crossing", "walking", "same_direction", "head_on",
-    "turning", "sudden_stop", "blocker", "two_crossing", "group", "group_merge",
-    "crowded", "high_density", "mixed",
+# Mirror social_nav_tools/environments.py (registry) and social_nav_benchmarks/scenarios.py.
+ENV_NAMES = ["urban", "factory", "warehouse", "hospital", "office", "plaza"]
+SCENARIO_TYPES = [
+    "empty", "low_density", "normal", "high_density", "dense_crowd", "crossing", "approaching",
+    "same_direction", "group", "bottleneck", "occlusion", "sudden_stop", "direction_change",
+    "goal_blocked", "multi_human", "dynamic_obstacle", "multi_robot",
 ]
-FACTORY_SCENARIOS = ["factory_empty", "factory_workers", "factory_crossing"]
-BENCH_SCENARIOS = ["all"] + URBAN_SCENARIOS
-PLANNERS = ["social_nav", "rpp", "dwb", "mppi"]
+DIFFICULTIES = ["easy", "medium", "hard", "stress"]
 SENSOR_PROFILES = ["clean", "realistic", "stress"]
 VIEWS = {"both": ("true", "true"), "gazebo": ("true", "false"),
          "rviz": ("false", "true"), "headless": ("false", "false")}
+BENCH_SCENARIOS = ["all", "empty", "stationary_side", "blocker_on_path", "crossing",
+                   "head_on", "same_direction", "group", "corridor_pair"]
+PLANNERS = ["social_nav", "rpp", "dwb", "mppi"]
 
-# The one running Gazebo activity this panel manages (a demo or a benchmark).
 _state = {"proc": None, "kind": None, "config": None}
 
 
@@ -63,40 +65,24 @@ def _clampi(value, lo, hi, default):
         return default
 
 
-def _clampf(value, lo, hi, default):
-    try:
-        return max(lo, min(hi, float(value)))
-    except (TypeError, ValueError):
-        return default
-
-
 def _build(cfg):
     """Validate a demo config and return (script_path, env_overrides, resolved_config)."""
-    env = cfg.get("environment")
-    if env == "factory":
-        script = os.path.join(SCRIPTS, "run_factory_demo.sh")
-        scenarios = FACTORY_SCENARIOS
-    else:
-        env = "urban"
-        script = os.path.join(SCRIPTS, "run_social_demo.sh")
-        scenarios = URBAN_SCENARIOS
-    scenario = cfg.get("scenario") if cfg.get("scenario") in scenarios else scenarios[0]
-    sensor = cfg.get("sensor") if cfg.get("sensor") in SENSOR_PROFILES else "realistic"
+    environment = cfg.get("environment") if cfg.get("environment") in ENV_NAMES else "urban"
+    scenario = cfg.get("scenario") if cfg.get("scenario") in SCENARIO_TYPES else "normal"
+    difficulty = cfg.get("difficulty") if cfg.get("difficulty") in DIFFICULTIES else "medium"
     view = cfg.get("view") if cfg.get("view") in VIEWS else "both"
     gui, rviz = VIEWS[view]
-    people = _clampi(cfg.get("people"), 0, 40, -1)
     robots = _clampi(cfg.get("robots"), 1, 5, 1)
-    goal_x = _clampf(cfg.get("goal_x"), -10.0, 10.0, 9.0 if env == "urban" else 8.5)
-    goal_y = _clampf(cfg.get("goal_y"), -10.0, 10.0, 0.0)
-    overrides = {"SCENARIO": scenario, "GUI": gui, "RVIZ": rviz, "SENSOR_PROFILE": sensor,
-                 "GOAL_X": str(goal_x), "GOAL_Y": str(goal_y)}
-    if env == "urban":
-        overrides["NUM_ROBOTS"] = str(robots)
-        overrides["NUM_HUMANS"] = str(people)
-    resolved = {"kind": "demo", "environment": env, "scenario": scenario, "sensor": sensor,
-                "view": view, "people": people, "robots": robots,
-                "goal": [goal_x, goal_y]}
-    return script, overrides, resolved
+    seed = _clampi(cfg.get("seed"), 0, 100000, 42)
+    sensor = cfg.get("sensor")
+    overrides = {"ENV": environment, "SCENARIO": scenario, "DIFFICULTY": difficulty,
+                 "SEED": str(seed), "NUM_ROBOTS": str(robots), "GUI": gui, "RVIZ": rviz}
+    if sensor in SENSOR_PROFILES:      # otherwise "auto" -> difficulty decides
+        overrides["SENSOR"] = sensor
+    resolved = {"kind": "demo", "environment": environment, "scenario": scenario,
+                "difficulty": difficulty, "robots": robots, "sensor": sensor or "auto",
+                "view": view, "seed": seed}
+    return os.path.join(SCRIPTS, "run_env_demo.sh"), overrides, resolved
 
 
 def _launch(cfg):
@@ -120,7 +106,6 @@ def _benchmark(cfg):
     scenario = cfg.get("scenario") if cfg.get("scenario") in BENCH_SCENARIOS else "all"
     runs = _clampi(cfg.get("runs"), 1, 50, 5)
     planners = [p for p in (cfg.get("planners") or []) if p in PLANNERS]
-    # All tokens are allowlisted above, so this command string carries no user text.
     cmd = (f"source /opt/ros/humble/setup.bash && source {WS}/install/setup.bash && "
            f"social-nav-benchmark --scenario {scenario} --runs {runs}")
     if planners:
@@ -148,7 +133,6 @@ def _stop():
 
 
 def _list_reports():
-    """Result runs that carry a report.html, newest first."""
     out = []
     if os.path.isdir(RESULTS_ROOT):
         for name in os.listdir(RESULTS_ROOT):
@@ -160,7 +144,6 @@ def _list_reports():
 
 
 def _read_report(name):
-    """Return the bytes of RESULTS_ROOT/<name>/report.html, or None if the name is unsafe."""
     if not name or "/" in name or "\\" in name or name.startswith("."):
         return None
     path = os.path.realpath(os.path.join(RESULTS_ROOT, name, "report.html"))
@@ -193,11 +176,9 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, json.dumps({"running": _running(), "kind": _state["kind"],
                                         "config": _state["config"]}))
         elif parsed.path == "/reports":
-            self._send(200, json.dumps({"reports": _list_reports(),
-                                        "root": RESULTS_ROOT}))
+            self._send(200, json.dumps({"reports": _list_reports(), "root": RESULTS_ROOT}))
         elif parsed.path == "/report":
-            name = (parse_qs(parsed.query).get("name") or [""])[0]
-            body = _read_report(name)
+            body = _read_report((parse_qs(parsed.query).get("name") or [""])[0])
             if body is None:
                 self._send(404, "report not found", "text/plain")
             else:
@@ -231,8 +212,8 @@ PAGE = """<!doctype html>
 <style>
   :root {
     --bg:#0f141a; --panel:#171f28; --panel2:#121820; --line:#26313d; --fg:#e8eef4;
-    --muted:#93a1b1; --accent:#41a35c; --accent-fg:#eafff0; --danger:#c8503a;
-    --focus:#5b8cff; --amber:#d9a441; color-scheme:dark;
+    --muted:#93a1b1; --accent:#41a35c; --accent-fg:#eafff0; --danger:#c8503a; --focus:#5b8cff;
+    color-scheme:dark;
   }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--fg);
@@ -241,7 +222,7 @@ PAGE = """<!doctype html>
     border-bottom:1px solid var(--line); background:linear-gradient(180deg,#141b23,#0f141a); }
   .logo { width:30px; height:30px; border-radius:8px; flex:none;
     background:linear-gradient(135deg,var(--accent),#2c7fbf); }
-  header h1 { margin:0; font-size:16px; font-weight:650; letter-spacing:.01em; }
+  header h1 { margin:0; font-size:16px; font-weight:650; }
   header p { margin:1px 0 0; color:var(--muted); font-size:12.5px; }
   .pill { margin-left:auto; display:flex; align-items:center; gap:8px; font-size:13px;
     background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:6px 13px; }
@@ -299,14 +280,13 @@ PAGE = """<!doctype html>
   <div class="logo" aria-hidden="true"></div>
   <div>
     <h1>SocialNav — Simulation Control</h1>
-    <p>Configure a socially-aware navigation run, or benchmark planners and read the report.</p>
+    <p>Run any environment/scenario, or benchmark planners and read the report.</p>
   </div>
   <div class="pill"><span class="dot" id="dot"></span><span id="pill">Idle</span></div>
 </header>
 
 <div class="tabs" role="tablist">
-  <div class="tab" role="tab" aria-selected="true" id="tabLaunch"
-       onclick="showTab('launch')">Launch</div>
+  <div class="tab" role="tab" aria-selected="true" id="tabLaunch" onclick="showTab('launch')">Launch</div>
   <div class="tab" role="tab" aria-selected="false" id="tabReports"
        onclick="showTab('reports')">Benchmarks &amp; reports</div>
 </div>
@@ -314,62 +294,52 @@ PAGE = """<!doctype html>
 <main>
   <div class="banner" id="banner"></div>
 
-  <!-- LAUNCH TAB -->
   <div id="panelLaunch" class="grid">
     <section class="card" aria-label="Configuration">
       <h2>Scenario</h2>
-      <div class="field"><label>Environment</label>
-        <div class="seg" id="env">
-          <label><input type="radio" name="environment" value="urban" checked> Urban street</label>
-          <label><input type="radio" name="environment" value="factory"> Factory floor</label>
-        </div>
-      </div>
-      <div class="field"><label for="scenario">Scenario</label>
-        <select id="scenario"></select><div class="hint" id="scenarioHint"></div></div>
       <div class="row">
-        <div class="field"><label for="people">People</label>
-          <input type="number" id="people" min="0" max="40" step="1" value="-1">
-          <div class="hint">-1 = scenario default</div></div>
+        <div class="field"><label for="environment">Environment</label>
+          <select id="environment"></select></div>
+        <div class="field"><label for="scenario">Scenario type</label>
+          <select id="scenario"></select></div>
+      </div>
+      <div class="field"><label>Difficulty</label>
+        <div class="seg" id="difficulty"></div>
+        <div class="hint">Difficulty scales crowd size, speed, sensor noise and dynamic
+          obstacles — never the planner.</div></div>
+      <div class="row">
         <div class="field"><label for="robots">Robots</label>
           <input type="number" id="robots" min="1" max="5" step="1" value="1">
           <div class="hint">1 primary + extra AMRs</div></div>
+        <div class="field"><label for="seed">Seed</label>
+          <input type="number" id="seed" min="0" step="1" value="42"></div>
       </div>
-      <div class="field"><label>Sensor noise</label>
-        <div class="seg" id="sensor">
-          <label><input type="radio" name="sensor" value="clean"> Clean</label>
-          <label><input type="radio" name="sensor" value="realistic" checked> Realistic</label>
-          <label><input type="radio" name="sensor" value="stress"> Stress</label>
-        </div>
-      </div>
+      <div class="field"><label for="sensor">Sensor noise</label>
+        <select id="sensor">
+          <option value="auto">auto (from difficulty)</option>
+          <option value="clean">clean</option>
+          <option value="realistic">realistic</option>
+          <option value="stress">stress</option>
+        </select></div>
       <div class="field"><label>View</label>
         <div class="seg" id="view">
           <label><input type="radio" name="view" value="both" checked> Gazebo + RViz</label>
           <label><input type="radio" name="view" value="gazebo"> Gazebo</label>
           <label><input type="radio" name="view" value="rviz"> RViz</label>
           <label><input type="radio" name="view" value="headless"> Headless</label>
-        </div>
-      </div>
-      <div class="row">
-        <div class="field"><label for="gx">Goal X (m)</label>
-          <input type="number" id="gx" step="0.5" value="9"></div>
-        <div class="field"><label for="gy">Goal Y (m)</label>
-          <input type="number" id="gy" step="0.5" value="0"></div>
-      </div>
-      <div class="hint" style="margin:-6px 0 14px">Keep the goal within ~10 m of the start
-        (rolling costmap window).</div>
+        </div></div>
+      <div class="hint" style="margin:-6px 0 14px">Start pose and goal come from the
+        environment; crowd density from scenario + difficulty.</div>
       <div class="actions">
         <button class="primary" id="launch">Launch simulation</button>
         <button class="ghost" id="stop" disabled>Stop</button>
       </div>
     </section>
-    <section class="card" aria-label="Status">
-      <h2>Status</h2>
+    <section class="card" aria-label="Status"><h2>Status</h2>
       <div id="launchDetail"><p class="empty">No simulation running. Configure a scenario and
-        press Launch.</p></div>
-    </section>
+        press Launch.</p></div></section>
   </div>
 
-  <!-- REPORTS TAB -->
   <div id="panelReports" class="grid hidden">
     <section class="card" aria-label="Run benchmark">
       <h2>Run a benchmark</h2>
@@ -382,24 +352,32 @@ PAGE = """<!doctype html>
         <div class="hint">social_nav vs. baselines on the same scenarios/seeds.</div></div>
       <div class="actions">
         <button class="primary" id="runBench">Run benchmark</button>
-        <button class="ghost" id="stop2" disabled>Stop</button>
-      </div>
+        <button class="ghost" id="stop2" disabled>Stop</button></div>
       <div class="hint" style="margin-top:12px">Headless; a sweep can take many minutes
         (Gazebo per run). The report appears at right when it finishes.</div>
     </section>
-    <section class="card" aria-label="Reports">
-      <h2>Reports</h2>
-      <div id="reports"><p class="empty">Loading…</p></div>
-    </section>
+    <section class="card" aria-label="Reports"><h2>Reports</h2>
+      <div id="reports"><p class="empty">Loading…</p></div></section>
   </div>
 </main>
 
 <script>
-  const SCEN = { urban:%URBAN%, factory:%FACTORY% };
+  const ENVS = %ENVS%, SCENARIOS = %SCENARIOS%, DIFFS = %DIFFS%;
   const BENCH = %BENCH%, PLANNERS = %PLANNERS%;
   const $ = (id) => document.getElementById(id);
-  const env = () => document.querySelector('input[name=environment]:checked').value;
   const radio = (n) => document.querySelector('input[name='+n+']:checked').value;
+
+  function opt(sel, list, dflt){ list.forEach(v => { const o=document.createElement("option");
+    o.value=v; o.textContent=v.replace(/_/g," "); if (v===dflt) o.selected=true; sel.appendChild(o); }); }
+  opt($("environment"), ENVS, "urban");
+  opt($("scenario"), SCENARIOS, "normal");
+  opt($("bscenario"), BENCH, "all");
+  DIFFS.forEach((d,i) => { const l=document.createElement("label");
+    l.innerHTML='<input type="radio" name="difficulty" value="'+d+'"'+(d==="medium"?" checked":"")+'> '+d;
+    $("difficulty").appendChild(l); });
+  PLANNERS.forEach((p) => { const l=document.createElement("label");
+    l.innerHTML='<input type="checkbox" value="'+p+'"'+(p==="social_nav"?" checked":"")+'> '+p;
+    $("planners").appendChild(l); });
 
   function showTab(t){
     $("panelLaunch").classList.toggle("hidden", t!=="launch");
@@ -409,83 +387,49 @@ PAGE = """<!doctype html>
     if (t==="reports") loadReports();
   }
 
-  function fillScenarios(){
-    const e = env();
-    $("scenario").innerHTML = "";
-    SCEN[e].forEach((s) => {
-      const o = document.createElement("option");
-      o.value = s; o.textContent = s.replace(/_/g," ");
-      if (s==="crossing") o.selected = true;
-      $("scenario").appendChild(o);
-    });
-    const factory = e==="factory";
-    $("people").disabled = factory; $("robots").disabled = factory;
-    $("scenarioHint").textContent = factory
-      ? "Factory scenarios set their own worker count."
-      : "People / Robots below override the scenario.";
-  }
-  document.querySelectorAll('input[name=environment]').forEach(
-    el => el.addEventListener("change", fillScenarios));
-  fillScenarios();
-
-  // Benchmark controls
-  BENCH.forEach((s) => { const o=document.createElement("option");
-    o.value=s; o.textContent=s.replace(/_/g," "); $("bscenario").appendChild(o); });
-  PLANNERS.forEach((p) => {
-    const l=document.createElement("label");
-    l.innerHTML='<input type="checkbox" value="'+p+'"'+(p==="social_nav"?" checked":"")+'> '+p;
-    $("planners").appendChild(l);
-  });
-
   function demoConfig(){ return {
-    environment:env(), scenario:$("scenario").value, people:$("people").value,
-    robots:$("robots").value, sensor:radio("sensor"), view:radio("view"),
-    goal_x:$("gx").value, goal_y:$("gy").value }; }
-  function benchConfig(){ return {
-    scenario:$("bscenario").value, runs:$("bruns").value,
+    environment:$("environment").value, scenario:$("scenario").value,
+    difficulty:radio("difficulty"), robots:$("robots").value, seed:$("seed").value,
+    sensor:$("sensor").value, view:radio("view") }; }
+  function benchConfig(){ return { scenario:$("bscenario").value, runs:$("bruns").value,
     planners:[...document.querySelectorAll('#planners input:checked')].map(c=>c.value) }; }
 
-  function banner(msg){ const b=$("banner"); b.textContent=msg;
-    b.classList.toggle("show", !!msg); }
+  function banner(msg){ const b=$("banner"); b.textContent=msg; b.classList.toggle("show", !!msg); }
 
   function render(st){
     const run = st.running, kind = st.kind, c = st.config || {};
     $("dot").className = "dot" + (run ? " run" : "");
-    $("pill").textContent = run ? (kind==="benchmark" ? "Benchmark running" : "Simulation running")
-                                : "Idle";
+    $("pill").textContent = run ? (kind==="benchmark" ? "Benchmark running" : "Simulation running") : "Idle";
     $("launch").disabled = run; $("runBench").disabled = run;
     $("stop").disabled = !run; $("stop2").disabled = !run;
     if (run && kind==="demo"){
       $("launchDetail").innerHTML =
         '<dl><dt>Environment</dt><dd>'+c.environment+'</dd>'+
         '<dt>Scenario</dt><dd>'+c.scenario+'</dd>'+
-        '<dt>People</dt><dd>'+(c.people<0?'scenario default':c.people)+'</dd>'+
+        '<dt>Difficulty</dt><dd>'+c.difficulty+'</dd>'+
         '<dt>Robots</dt><dd>'+c.robots+'</dd>'+
         '<dt>Sensor</dt><dd>'+c.sensor+'</dd>'+
         '<dt>View</dt><dd>'+c.view+'</dd>'+
-        '<dt>Goal</dt><dd>('+c.goal[0]+', '+c.goal[1]+')</dd></dl>'+
+        '<dt>Seed</dt><dd>'+c.seed+'</dd></dl>'+
         '<p class="hint">Log: <code>/tmp/social_nav_sim_panel.log</code></p>';
     } else if (!run){
       $("launchDetail").innerHTML = '<p class="empty">No simulation running. Configure a '+
         'scenario and press Launch.</p>';
     } else {
-      $("launchDetail").innerHTML = '<p class="empty">A benchmark is running (see the '+
-        'Benchmarks tab).</p>';
+      $("launchDetail").innerHTML = '<p class="empty">A benchmark is running (Benchmarks tab).</p>';
     }
   }
 
-  async function post(path, body){
-    const r = await fetch(path, {method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(body||{})}); return r.json(); }
+  async function post(path, body){ const r = await fetch(path, {method:"POST",
+    headers:{"Content-Type":"application/json"}, body:JSON.stringify(body||{})}); return r.json(); }
   async function poll(){ try { render(await (await fetch("/status")).json()); } catch(e){} }
-
   async function loadReports(){
     try {
       const d = await (await fetch("/reports")).json();
       const box = $("reports");
-      if (!d.reports.length){ box.innerHTML = '<p class="empty">No reports yet. Run a '+
-        'benchmark, or point <code>social-nav-analyze</code> at a results dir. Reports are '+
-        'read from <code>'+d.root+'</code>.</p>'; return; }
+      if (!d.reports.length){ box.innerHTML = '<p class="empty">No reports yet. Run a benchmark, '+
+        'or point <code>social-nav-analyze</code> at a results dir. Read from <code>'+d.root+
+        '</code>.</p>'; return; }
       box.innerHTML = '<div class="replist">' + d.reports.map(r =>
         '<div class="rep"><div><div class="name">'+r.name+'</div>'+
         '<div class="when">'+new Date(r.mtime*1000).toLocaleString()+'</div></div>'+
@@ -494,11 +438,11 @@ PAGE = """<!doctype html>
     } catch(e){ $("reports").innerHTML = '<p class="empty">Could not load reports.</p>'; }
   }
 
-  $("launch").addEventListener("click", async () => {
-    banner(""); const res = await post("/launch", demoConfig());
+  $("launch").addEventListener("click", async () => { banner("");
+    const res = await post("/launch", demoConfig());
     if (!res.ok) banner(res.error||"Launch failed."); poll(); });
-  $("runBench").addEventListener("click", async () => {
-    banner(""); const res = await post("/benchmark", benchConfig());
+  $("runBench").addEventListener("click", async () => { banner("");
+    const res = await post("/benchmark", benchConfig());
     if (!res.ok) banner(res.error||"Could not start benchmark."); poll(); });
   const stopFn = async () => { banner(""); await post("/stop", {}); poll(); };
   $("stop").addEventListener("click", stopFn);
@@ -510,8 +454,9 @@ PAGE = """<!doctype html>
 </body>
 </html>
 """
-PAGE = (PAGE.replace("%URBAN%", json.dumps(URBAN_SCENARIOS))
-            .replace("%FACTORY%", json.dumps(FACTORY_SCENARIOS))
+PAGE = (PAGE.replace("%ENVS%", json.dumps(ENV_NAMES))
+            .replace("%SCENARIOS%", json.dumps(SCENARIO_TYPES))
+            .replace("%DIFFS%", json.dumps(DIFFICULTIES))
             .replace("%BENCH%", json.dumps(BENCH_SCENARIOS))
             .replace("%PLANNERS%", json.dumps(PLANNERS)))
 
