@@ -35,11 +35,13 @@ def test_multiple_groups_have_distinct_ids():
     assert sorted({p.group_id for p in people}) == [0, 1]
 
 
-def test_members_spread_by_group_spacing():
+def test_group_is_a_compact_cluster():
     people = plan_pedestrians(_cfg(num_humans=4, group_size=4))
-    ys = sorted(p.start[1] for p in people)
-    gaps = [ys[i + 1] - ys[i] for i in range(len(ys) - 1)]
-    assert all(abs(g - 0.7) < 1e-6 for g in gaps)
+    xs = [p.start[0] for p in people]
+    ys = [p.start[1] for p in people]
+    # a 2-wide staggered cluster stays within one group_spacing in each axis
+    assert max(xs) - min(xs) <= 0.7 + 1e-6
+    assert max(ys) - min(ys) <= 0.7 + 1e-6
 
 
 def test_group_plan_is_deterministic():

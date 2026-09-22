@@ -7,6 +7,8 @@
 #   GUI=false ./scripts/run_social_demo.sh          # no Gazebo GUI
 #   RVIZ=false ./scripts/run_social_demo.sh         # skip RViz
 #   SCENARIO=walking ./scripts/run_social_demo.sh   # pedestrians walk along the sidewalk
+#   SENSOR_PROFILE=stress ./scripts/run_social_demo.sh  # lidar noise: clean | realistic | stress
+#   NUM_ROBOTS=3 NUM_HUMANS=6 ./scripts/run_social_demo.sh  # multi-robot + people-count override
 #   GOAL_X=8 GOAL_Y=0 ./scripts/run_social_demo.sh  # keep goals within ~10 m of the origin start
 # Note: no `set -u` - sourcing ROS setup.bash references unbound vars (AMENT_TRACE_*).
 set -eo pipefail
@@ -30,6 +32,22 @@ export GAZEBO_MODEL_PATH="/usr/share/gazebo-11/models"
 # Disable the (dead) online model database, or gzclient hangs at "Preparing your world"
 # waiting on a network fetch. This is the usual cause of that hang.
 export GAZEBO_MODEL_DATABASE_URI=""
+# NVIDIA Optimus laptops in "on-demand" mode: gzclient/RViz default to the Intel iGPU and can
+# hang ("not responding") at startup. If an NVIDIA GPU is present, render on it instead. Set
+# NV_OFFLOAD=0 to disable (e.g. a machine with no NVIDIA GPU / vendor library).
+if [ "${NV_OFFLOAD:-auto}" != "0" ] && command -v nvidia-smi >/dev/null 2>&1 \
+    && nvidia-smi >/dev/null 2>&1; then
+  export __NV_PRIME_RENDER_OFFLOAD=1
+  export __GLX_VENDOR_LIBRARY_NAME=nvidia
+fi
+# LiDAR sensor-noise profile, read by mir_social.urdf.xacro via SOCIAL_NAV_SCAN_NOISE at launch.
+case "${SENSOR_PROFILE:-realistic}" in
+  clean)     export SOCIAL_NAV_SCAN_NOISE=0.0 ;;
+  realistic) export SOCIAL_NAV_SCAN_NOISE=0.01 ;;
+  stress)    export SOCIAL_NAV_SCAN_NOISE=0.03 ;;
+  *) echo "[run_social_demo] unknown SENSOR_PROFILE='${SENSOR_PROFILE}'; using realistic"
+     export SOCIAL_NAV_SCAN_NOISE=0.01 ;;
+esac
 
 _CLEANED=0
 cleanup() {
@@ -60,7 +78,8 @@ echo "[run_social_demo] launching urban demo (gui=$GUI, scenario=$SCENARIO)..."
 # RViz shows the robot, costmaps, plan and social zones. RVIZ=false to skip it (e.g. when the
 # Gazebo window alone is already heavy on the laptop GPU).
 ros2 launch social_nav_bringup urban_demo.launch.py \
-  gui:="$GUI" rviz:="${RVIZ:-true}" scenario:="$SCENARIO" &
+  gui:="$GUI" rviz:="${RVIZ:-true}" scenario:="$SCENARIO" \
+  num_robots:="${NUM_ROBOTS:-1}" num_humans:="${NUM_HUMANS:--1}" &
 
 # Wait until the WHOLE stack is active. bt_navigator activates last, so its lifecycle
 # state going 'active' is the correct gate - sending before that gets the goal rejected.

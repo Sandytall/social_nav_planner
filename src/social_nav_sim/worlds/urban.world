@@ -34,7 +34,7 @@
     <!-- Provides /gazebo/set_entity_state so the pedestrian manager can move people. -->
     <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
       <ros><namespace>/gazebo</namespace></ros>
-      <update_rate>50.0</update_rate>
+      <update_rate>20.0</update_rate>
     </plugin>
 
     <!-- Road surface (visual only, thin). -->

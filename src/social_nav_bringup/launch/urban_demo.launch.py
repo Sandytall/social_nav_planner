@@ -72,6 +72,32 @@ SCENARIOS = {
         "seed": 42,
         "spawn_region": [1.0, 12.0, -1.0, 1.4],
     },
+    "head_on": {
+        "num_humans": 1,
+        "behavior_profile": "head_on",
+        "seed": 42,
+        "spawn_region": [1.0, 12.0, -0.5, 1.4],
+    },
+    "turning": {
+        "num_humans": 2,
+        "behavior_profile": "turning",
+        "seed": 42,
+        "spawn_region": [1.0, 12.0, -0.5, 1.4],
+    },
+    "same_direction": {"num_humans": 1, "behavior_profile": "same_direction",
+                       "seed": 42, "spawn_region": [1.0, 12.0, -0.5, 1.4]},
+    "sudden_stop": {"num_humans": 1, "behavior_profile": "stop_go",
+                    "seed": 42, "spawn_region": [1.0, 12.0, -0.5, 1.4]},
+    "blocker": {"num_humans": 1, "behavior_profile": "blocker",
+                "seed": 42, "spawn_region": [1.0, 12.0, -0.5, 1.4]},
+    "two_crossing": {"num_humans": 2, "behavior_profile": "crossing",
+                     "seed": 42, "spawn_region": [1.0, 12.0, -0.5, 1.4]},
+    "group_merge": {"num_humans": 4, "behavior_profile": "merge",
+                    "seed": 42, "spawn_region": [1.0, 12.0, -1.4, 1.4]},
+    "high_density": {"num_humans": 12, "behavior_profile": "mixed",
+                     "seed": 42, "spawn_region": [1.0, 12.0, -1.4, 1.4]},
+    "mixed": {"num_humans": 5, "behavior_profile": "mixed",
+              "seed": 42, "spawn_region": [1.0, 12.0, -1.0, 1.4]},
 }
 
 
@@ -82,13 +108,28 @@ def _pedestrians(context, *_):
             f"unknown scenario {scenario!r}; choose one of {sorted(SCENARIOS)}")
     params = dict(SCENARIOS[scenario])
     params["use_sim_time"] = True
-    return [Node(
+    override_h = int(LaunchConfiguration("num_humans").perform(context))
+    if override_h >= 0:
+        params["num_humans"] = override_h  # GUI/CLI override of the scenario's people count
+    nodes = [Node(
         package="social_nav_tools",
         executable="pedestrian_manager",
         name="pedestrian_manager",
         output="screen",
         parameters=[params],
     )]
+    # Secondary AMRs (multi-robot): num_robots-1 simple moving-obstacle agents the main robot
+    # must avoid. They are plain obstacles seen by the lidar, not part of the social problem.
+    num_robots = max(1, int(LaunchConfiguration("num_robots").perform(context)))
+    if num_robots > 1:
+        nodes.append(Node(
+            package="social_nav_tools",
+            executable="robot_agent_manager",
+            name="robot_agent_manager",
+            output="screen",
+            parameters=[{"use_sim_time": True, "num_agents": num_robots - 1}],
+        ))
+    return nodes
 
 
 def generate_launch_description():
@@ -143,6 +184,12 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "scenario", default_value="crossing",
             description="pedestrian scenario: " + ", ".join(sorted(SCENARIOS))),
+        DeclareLaunchArgument(
+            "num_robots", default_value="1",
+            description="total robots; >1 spawns (num_robots-1) secondary AMR obstacle agents"),
+        DeclareLaunchArgument(
+            "num_humans", default_value="-1",
+            description="override the scenario's people count; -1 keeps the scenario default"),
         sim,
         nav,
         markers,

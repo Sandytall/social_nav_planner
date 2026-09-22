@@ -1,3 +1,5 @@
+from glob import glob
+
 from setuptools import setup
 
 package_name = "social_nav_benchmarks"
@@ -9,6 +11,8 @@ setup(
     data_files=[
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
         ("share/" + package_name, ["package.xml"]),
+        # Baseline planner profiles selected by the runner via SOCIAL_NAV_PARAMS.
+        ("share/" + package_name + "/config/planners", glob("config/planners/*.yaml")),
     ],
     install_requires=["setuptools"],
     zip_safe=True,

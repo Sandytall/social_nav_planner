@@ -28,12 +28,20 @@ from social_nav_benchmarks import events as EV
 from social_nav_benchmarks import trajectory as TRAJ
 from social_nav_benchmarks import failure_classifier as FC
 from social_nav_benchmarks import report_html as RPT
+from social_nav_benchmarks import planners as PL
+from social_nav_benchmarks import comparison as CMP
+from social_nav_benchmarks import telemetry as TEL
 from social_nav_benchmarks.scenarios import get_scenario, scenario_names
 
 try:
     from social_nav_msgs.msg import HumanArray, PlannerMetrics
 except Exception:  # noqa: BLE001
     HumanArray = PlannerMetrics = None
+
+try:
+    from rosgraph_msgs.msg import Clock
+except Exception:  # noqa: BLE001
+    Clock = None
 
 KILL_PATTERN = ("controller_server|planner_server|behavior_server|bt_navigator|"
                 "lifecycle_manager|static_transform_publisher|spawn_entity|"
@@ -55,6 +63,8 @@ class Recorder(Node):
         self.odom = []
         self.humans = []
         self.metrics = None
+        self.metrics_series = []  # (t, p50, p95, p99, max, freq, deadline_misses)
+        self.clock_samples = []   # (walltime, sim_seconds) for real-time-factor
         self._t0 = time.time()
         self.create_subscription(Odometry, "/odom", self._odom, 20)
         if HumanArray is not None:
@@ -62,6 +72,8 @@ class Recorder(Node):
         if PlannerMetrics is not None:
             self.create_subscription(
                 PlannerMetrics, "/social_nav/debug/metrics", self._metrics, 10)
+        if Clock is not None:
+            self.create_subscription(Clock, "/clock", self._clock, 10)
         self.client = ActionClient(self, NavigateToPose, "/navigate_to_pose")
 
     def _odom(self, m):
@@ -77,6 +89,15 @@ class Recorder(Node):
         self.metrics = dict(p50_ms=m.p50_ms, p95_ms=m.p95_ms, p99_ms=m.p99_ms,
                             max_ms=m.max_ms, deadline_misses=m.deadline_misses,
                             actual_frequency_hz=m.actual_frequency_hz)
+        # Keep the whole stream, not just the last window, so the report can plot a real
+        # latency series (baselines never publish this topic, so their series stays empty).
+        self.metrics_series.append((round(time.time() - self._t0, 3), m.p50_ms, m.p95_ms,
+                                    m.p99_ms, m.max_ms, m.actual_frequency_hz,
+                                    m.deadline_misses))
+
+    def _clock(self, m):
+        self.clock_samples.append(
+            (time.time(), m.clock.sec + m.clock.nanosec * 1e-9))
 
 
 def _launch_env():
@@ -86,7 +107,7 @@ def _launch_env():
     return env
 
 
-def run_one(scenario_name, run_idx, goal, timeout_s, logdir):
+def run_one(scenario_name, run_idx, goal, timeout_s, logdir, planner_label=None):
     scn = get_scenario(scenario_name)
     _kill_all()
     time.sleep(3)
@@ -121,6 +142,9 @@ def run_one(scenario_name, run_idx, goal, timeout_s, logdir):
 
     rec = Recorder()
     record = {"scenario": scenario_name, "run": run_idx, "status": "NO_ACTIVE"}
+    if planner_label is not None:
+        record["planner_name"] = planner_label
+    tel = TEL.TelemetrySampler().start()  # CPU/RAM/GPU while this run executes
     if active and rec.client.wait_for_server(timeout_sec=40):
         g = NavigateToPose.Goal()
         g.pose = PoseStamped()
@@ -147,9 +171,14 @@ def run_one(scenario_name, run_idx, goal, timeout_s, logdir):
         else:
             record["status"] = "REJECTED"
 
+    telemetry = tel.stop()
+    telemetry["rtf"] = TEL.compute_rtf(rec.clock_samples)
     record["odom"] = rec.odom
     record["humans"] = rec.humans
     record["planner"] = rec.metrics
+    if rec.metrics_series:
+        record["planner_series"] = rec.metrics_series
+    record["telemetry"] = telemetry
     rec.destroy_node()
 
     # Teardown.
@@ -173,10 +202,21 @@ def main():
     ap.add_argument("--runs", type=int, default=3)
     ap.add_argument("--output", default=os.path.expanduser("~/social_nav_results"))
     ap.add_argument("--goal", default="2.5,2.5")
+    ap.add_argument(
+        "--planner", default="",
+        help="comma-separated planner profiles to run on the same scenarios/goal for "
+             f"baseline comparison, e.g. 'social_nav,rpp'. Known: {PL.planner_names()}. "
+             "Empty = use the current SOCIAL_NAV_PARAMS / shipped default (no override).")
     args = ap.parse_args()
 
     goal = tuple(float(x) for x in args.goal.split(","))
     names = scenario_names() if args.scenario == "all" else [args.scenario]
+
+    # A planner profile of None means "leave SOCIAL_NAV_PARAMS untouched" (backward
+    # compatible single pass); an explicit list runs each profile over every scenario.
+    requested = [p.strip() for p in args.planner.split(",") if p.strip()]
+    planners = PL.validate(requested) if requested else [None]
+
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     outdir = os.path.join(args.output, stamp)
     os.makedirs(outdir, exist_ok=True)
@@ -187,37 +227,49 @@ def main():
     meta = {
         "timestamp_utc": stamp,
         "params_file": os.environ.get("SOCIAL_NAV_PARAMS", "default (shipped nav2_params.yaml)"),
+        "planners": requested or ["<current SOCIAL_NAV_PARAMS>"],
         "scenarios": names, "runs_each": args.runs, "goal": list(goal),
         "git_commit": subprocess.getoutput(
             "git -C ~/Social_planner/social_nav_ws rev-parse --short HEAD 2>/dev/null"),
         "ros_distro": os.environ.get("ROS_DISTRO", "unknown"),
+        "host": TEL.host_info(),
     }
     with open(os.path.join(outdir, "experiment_metadata.json"), "w") as f:
         json.dump(meta, f, indent=2)
 
     rclpy.init()
     rows = []
-    total = len(names) * args.runs
+    total = len(planners) * len(names) * args.runs
     n = 0
-    for name in names:
-        for run in range(1, args.runs + 1):
-            n += 1
-            print(f"[{n}/{total}] scenario={name} run={run} ...", flush=True)
-            record = run_one(name, run, goal, get_scenario(name)["timeout"], logdir)
-            row = M.compute(record, goal)
-            row["failure"] = FC.classify(row, record)
-            base = os.path.join(outdir, f"{name}_{run:03d}")
-            with open(base + ".json", "w") as f:
-                json.dump(row, f, indent=2)
-            # Additive artefacts consumed by social-nav-analyze / social-nav-report.
-            with open(base + "_record.json", "w") as f:
-                json.dump(record, f)
-            EV.write_events(EV.detect_events(record, goal), base + "_events.json")
-            TRAJ.write_trajectory_csv(record, base + "_trajectory.csv")
-            rows.append(row)
-            print(f"      -> success={row.get('success')} status={row.get('status')} "
-                  f"min_clear={row.get('min_human_distance_m')} "
-                  f"t_goal={row.get('time_to_goal_s')}", flush=True)
+    for planner in planners:
+        if planner is not None:
+            # This is the whole selection mechanism: navigation.launch.py reads
+            # SOCIAL_NAV_PARAMS and loads the chosen profile as the nav2 params file.
+            os.environ["SOCIAL_NAV_PARAMS"] = PL.resolve_params_path(planner)
+        for name in names:
+            for run in range(1, args.runs + 1):
+                n += 1
+                tag = f"planner={planner} " if planner is not None else ""
+                print(f"[{n}/{total}] {tag}scenario={name} run={run} ...", flush=True)
+                record = run_one(name, run, goal, get_scenario(name)["timeout"], logdir,
+                                 planner_label=planner)
+                row = M.compute(record, goal)
+                row["failure"] = FC.classify(row, record)
+                if planner is not None:
+                    row["planner"] = planner
+                prefix = f"{planner}_" if planner is not None else ""
+                base = os.path.join(outdir, f"{prefix}{name}_{run:03d}")
+                with open(base + ".json", "w") as f:
+                    json.dump(row, f, indent=2)
+                # Additive artefacts consumed by social-nav-analyze / social-nav-report.
+                with open(base + "_record.json", "w") as f:
+                    json.dump(record, f)
+                EV.write_events(EV.detect_events(record, goal), base + "_events.json")
+                TRAJ.write_trajectory_csv(record, base + "_trajectory.csv")
+                rows.append(row)
+                print(f"      -> success={row.get('success')} status={row.get('status')} "
+                      f"min_clear={row.get('min_human_distance_m')} "
+                      f"t_goal={row.get('time_to_goal_s')}", flush=True)
     rclpy.shutdown()
 
     # summary.csv
@@ -227,13 +279,19 @@ def main():
         for r in rows:
             w.writerow(r)
 
+    # comparison.csv: per-planner aggregate, only meaningful when profiles were selected.
+    if requested:
+        CMP.write_comparison_csv(rows, os.path.join(outdir, "comparison.csv"))
+
     _write_report(outdir, rows, names, meta)
     try:
         RPT.generate(outdir, rows=rows, meta=meta)
     except Exception as exc:  # noqa: BLE001 - a report failure must not lose run data
         print(f"[warn] HTML report generation failed: {exc}")
+    extra = "comparison.csv, " if requested else ""
     print(f"\nDone. Results in {outdir}\n"
-          "  summary.csv, report.md, report.html, per-run JSON/events/trajectory, logs/")
+          f"  summary.csv, {extra}report.md, report.html, "
+          "per-run JSON/events/trajectory, logs/")
 
 
 def _write_report(outdir, rows, names, meta):

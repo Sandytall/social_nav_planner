@@ -4,8 +4,9 @@
   <name>social_nav_costs</name>
   <version>0.1.0</version>
   <description>
-    SocialLayer Nav2 costmap plugin for the SocialNav Planner: injects anisotropic
-    human personal-space cost so the planner routes around people.
+    Nav2 costmap plugins for the SocialNav Planner: SocialLayer injects anisotropic human
+    personal-space cost so the planner routes around people, and RestrictedZoneLayer stamps
+    configured keep-out rectangles so it routes around restricted areas and heavy machinery.
   </description>
   <maintainer email="sandeepnaik89711@gmail.com">Sandeep</maintainer>
   <license>Apache-2.0</license>
@@ -19,6 +20,8 @@
   <depend>social_nav_msgs</depend>
   <depend>social_nav_core</depend>
   <depend>eigen</depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

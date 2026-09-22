@@ -134,9 +134,12 @@ class WorkerManager(Node):
         self.declare_parameter("robot_start", [0.0, 0.0])
         self.declare_parameter("robot_keepout", 1.5)
         self.declare_parameter("walkable", [-3.8, 10.8, -6.3, 6.3])
-        self.declare_parameter("workstations", [], _DOUBLE_ARRAY)
-        self.declare_parameter("crossing_routes", [], _DOUBLE_ARRAY)
-        self.declare_parameter("obstacles", [], _DOUBLE_ARRAY)
+        # Type-only: rclpy cannot infer an array type from an empty [] default, so these are
+        # declared with an explicit type and no default. The launch always supplies them; read
+        # as [] when a standalone run leaves them unset (see _darr below).
+        self.declare_parameter("workstations", Parameter.Type.DOUBLE_ARRAY)
+        self.declare_parameter("crossing_routes", Parameter.Type.DOUBLE_ARRAY)
+        self.declare_parameter("obstacles", Parameter.Type.DOUBLE_ARRAY)
         # Gazebo world coords of the map origin (the robot's spawn pose). The factory launch
         # spawns the robot at the world origin, so the default is identity: world == map.
         self.declare_parameter("map_origin_in_world", [0.0, 0.0])
@@ -144,7 +147,10 @@ class WorkerManager(Node):
         gp = self.get_parameter
 
         def darr(name):
-            return list(gp(name).get_parameter_value().double_array_value)
+            try:
+                return list(gp(name).get_parameter_value().double_array_value)
+            except ParameterUninitializedException:
+                return []  # a standalone run left an optional geometry array unset
 
         self.frame = gp("frame_id").get_parameter_value().string_value
         self.map_origin = tuple(darr("map_origin_in_world"))

@@ -24,6 +24,7 @@ def generate_launch_description():
 
     world = LaunchConfiguration("world")
     gui = LaunchConfiguration("gui")
+    verbose = LaunchConfiguration("verbose")
     use_sim_time = LaunchConfiguration("use_sim_time")
     x = LaunchConfiguration("x")
     y = LaunchConfiguration("y")
@@ -33,7 +34,7 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(gazebo_ros, "launch", "gzserver.launch.py")
         ),
-        launch_arguments={"world": world, "verbose": "true"}.items(),
+        launch_arguments={"world": world, "verbose": verbose}.items(),
     )
     gzclient = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -68,6 +69,9 @@ def generate_launch_description():
             ),
         ),
         DeclareLaunchArgument("gui", default_value="true"),
+        DeclareLaunchArgument(
+            "verbose", default_value="false",
+            description="gzserver --verbose logging (off by default; it slows the sim)"),
         DeclareLaunchArgument("use_sim_time", default_value="true"),
         DeclareLaunchArgument("x", default_value="-3.5"),
         DeclareLaunchArgument("y", default_value="-3.5"),

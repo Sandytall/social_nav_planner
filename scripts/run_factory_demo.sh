@@ -9,6 +9,7 @@
 #   RVIZ=false ./scripts/run_factory_demo.sh              # skip RViz
 #   SCENARIO=factory_workers ./scripts/run_factory_demo.sh  # dwell workers only
 #   SCENARIO=factory_empty ./scripts/run_factory_demo.sh    # empty factory
+#   SENSOR_PROFILE=stress ./scripts/run_factory_demo.sh     # lidar noise: clean | realistic | stress
 #   GOAL_X=7 GOAL_Y=0 ./scripts/run_factory_demo.sh       # keep goals within ~10 m of the origin start
 # Note: no `set -u` - sourcing ROS setup.bash references unbound vars (AMENT_TRACE_*).
 set -eo pipefail
@@ -32,6 +33,39 @@ export GAZEBO_MODEL_PATH="/usr/share/gazebo-11/models"
 # Disable the (dead) online model database, or gzclient hangs at "Preparing your world"
 # waiting on a network fetch. This is the usual cause of that hang.
 export GAZEBO_MODEL_DATABASE_URI=""
+# NVIDIA Optimus laptops in "on-demand" mode: gzclient/RViz default to the Intel iGPU and can
+# hang ("not responding") at startup. If an NVIDIA GPU is present, render on it instead. Set
+# NV_OFFLOAD=0 to disable (e.g. a machine with no NVIDIA GPU / vendor library).
+if [ "${NV_OFFLOAD:-auto}" != "0" ] && command -v nvidia-smi >/dev/null 2>&1 \
+    && nvidia-smi >/dev/null 2>&1; then
+  export __NV_PRIME_RENDER_OFFLOAD=1
+  export __GLX_VENDOR_LIBRARY_NAME=nvidia
+fi
+# LiDAR sensor-noise profile, read by mir_social.urdf.xacro via SOCIAL_NAV_SCAN_NOISE at launch.
+case "${SENSOR_PROFILE:-realistic}" in
+  clean)     export SOCIAL_NAV_SCAN_NOISE=0.0 ;;
+  realistic) export SOCIAL_NAV_SCAN_NOISE=0.01 ;;
+  stress)    export SOCIAL_NAV_SCAN_NOISE=0.03 ;;
+  *) echo "[run_factory_demo] unknown SENSOR_PROFILE='${SENSOR_PROFILE}'; using realistic"
+     export SOCIAL_NAV_SCAN_NOISE=0.01 ;;
+esac
+
+# Factory Nav2 params: same as the urban demo but the GLOBAL costmap also loads the
+# RestrictedZoneLayer keep-out over factory.world's restricted area + heavy machinery.
+# navigation.launch.py honors SOCIAL_NAV_PARAMS as the full nav2 params path, so pointing it
+# at the installed factory params keeps the shared urban nav2_params.yaml untouched. Respects
+# a caller-provided SOCIAL_NAV_PARAMS (e.g. for an ablation) if one is already set.
+if [ -z "${SOCIAL_NAV_PARAMS:-}" ]; then
+  _BRINGUP_SHARE="$(ros2 pkg prefix social_nav_bringup 2>/dev/null)/share/social_nav_bringup"
+  _FACTORY_PARAMS="$_BRINGUP_SHARE/config/nav2_params_factory.yaml"
+  if [ -f "$_FACTORY_PARAMS" ]; then
+    export SOCIAL_NAV_PARAMS="$_FACTORY_PARAMS"
+    echo "[run_factory_demo] using factory Nav2 params (restricted-zone keep-out): $SOCIAL_NAV_PARAMS"
+  else
+    echo "[run_factory_demo] WARNING: $_FACTORY_PARAMS not found (build the workspace);" \
+         "falling back to the shipped nav2_params.yaml (no restricted zones)."
+  fi
+fi
 
 _CLEANED=0
 cleanup() {

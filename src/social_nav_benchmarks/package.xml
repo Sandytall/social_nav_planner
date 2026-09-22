@@ -17,6 +17,12 @@
   <exec_depend>social_nav_msgs</exec_depend>
   <exec_depend>social_nav_bringup</exec_depend>
   <exec_depend>social_nav_tools</exec_depend>
+  <exec_depend>rosbag2_py</exec_depend>
+  <exec_depend>python3-psutil</exec_depend>
+  <!-- Baseline controllers compared against social_nav (selected by --planner). -->
+  <exec_depend>nav2_regulated_pure_pursuit_controller</exec_depend>
+  <exec_depend>dwb_core</exec_depend>
+  <exec_depend>nav2_mppi_controller</exec_depend>
 
   <test_depend>ament_flake8</test_depend>
   <test_depend>python3-pytest</test_depend>

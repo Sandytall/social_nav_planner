@@ -1,0 +1,269 @@
+# Benchmark planner profile: social_nav (the shipped SocialNavController).
+# This is a verbatim copy of social_nav_bringup/config/nav2_params.yaml, kept here so the
+# runner can select it by name (--planner social_nav) via SOCIAL_NAV_PARAMS alongside the
+# baseline profiles. Do not edit for behaviour changes; edit the bringup source instead.
+#
+# Nav2 parameters for the SocialNav Planner (adapted to ROS 2 Humble).
+# Mapless: global costmap uses a rolling window so no map file / AMCL is needed for the
+# demo. The controller is our SocialNavController wired as the FollowPath plugin.
+
+controller_server:
+  ros__parameters:
+    use_sim_time: true
+    controller_frequency: 20.0
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.5
+    min_theta_velocity_threshold: 0.001
+    failure_tolerance: 0.3
+    progress_checker_plugin: "progress_checker"
+    goal_checker_plugins: ["general_goal_checker"]
+    controller_plugins: ["FollowPath"]
+
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.5
+      movement_time_allowance: 10.0
+
+    general_goal_checker:
+      stateful: true
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.25
+      # Heading-agnostic arrival: the Phase-2 pure-pursuit controller does not do a final
+      # in-place rotation, and final heading is not important for this robot. Effectively
+      # position-only goal checking.
+      yaw_goal_tolerance: 3.15
+
+    # SocialNav controller (hybrid: pure-pursuit base + social perturbation).
+    # Path following is done by a reliable pure-pursuit base command; the social weights
+    # only choose among candidate commands sampled AROUND it. See docs/TUNING.md.
+    FollowPath:
+      plugin: "social_nav_controller/SocialNavController"
+      controller_frequency: 20.0
+
+      # --- SPEED ---
+      desired_linear_vel: 0.5        # cruise speed (m/s) on a clear straight path
+      max_linear_velocity: 0.8       # hard cap on forward speed (m/s)
+      max_angular_velocity: 1.2      # hard cap on turn rate (rad/s)
+      min_approach_speed: 0.1        # floor speed while turning through curves (m/s)
+
+      # --- PATH FOLLOWING (pure-pursuit base) ---
+      lookahead_dist: 1.2            # how far ahead on the plan to aim (m); bigger = smoother, cuts corners
+      curvature_threshold: 0.6       # slow down when path curvature exceeds this (1/m)
+      rotate_in_place_threshold: 0.9 # if the aim point is >this angle off (rad), rotate in place first
+      rotate_gain: 1.5               # how hard to rotate toward the aim point
+
+      # --- ROBOT / SIM ---
+      robot_radius: 0.45             # MiR footprint radius (m); must match the costmaps
+      sim_time: 2.0                  # how far ahead (s) each candidate is simulated
+      sim_dt: 0.1                    # candidate integration step (s)
+
+      # --- SOCIAL (people) ---
+      humans_topic: /social_nav/humans
+      human_timeout: 1.0             # ignore human data older than this (s)
+      ttc_horizon: 4.0               # only worry about collisions within this time (s)
+      ttc_danger_distance: 0.8       # a predicted pass closer than this is "dangerous" (m)
+      front_social_sigma: 1.0        # personal-space size in FRONT of a person (m); bigger = wider berth
+      side_social_sigma: 0.7         # personal-space size to the SIDE (m)
+      rear_social_sigma: 0.5         # personal-space size BEHIND (m)
+      deviation_weight: 2.5          # cost of straying from the pure-pursuit command. HIGHER =>
+                                     # hugs the plan (may stop for people); LOWER => detours more freely.
+                                     # NOTE: going fully AROUND a person standing ON the path needs the
+                                     # SocialLayer costmap (phase D); until then the robot slows/stops
+                                     # and keeps clearance for a blocker and passes people
+                                     # who are beside the path.
+
+      # --- BEHAVIOR MODES ---
+      cautious_clearance: 2.0        # nearest person < this => CAUTIOUS (0.6x speed)
+      crowded_clearance: 1.2         # nearest person < this => CROWDED (0.4x speed)
+      emergency_clearance: 0.45      # nearest person < this => EMERGENCY (stop)
+      emergency_ttc: 1.0             # time-to-collision < this => EMERGENCY (stop)
+      crowded_num_humans: 4          # this many+ people => CROWDED
+      mode_hysteresis: 0.25          # de-escalation margin so the mode does not flicker
+
+      # --- SOCIAL COST WEIGHTS (only these three are used by the hybrid) ---
+      weights:
+        human: 6.0                   # avoid people's personal space
+        ttc: 20.0                    # avoid predicted collisions with moving people
+        group: 6.0                   # avoid driving through a group
+
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      use_sim_time: true
+      update_frequency: 5.0
+      publish_frequency: 2.0
+      global_frame: odom
+      robot_base_frame: base_footprint
+      rolling_window: true
+      width: 5
+      height: 5
+      resolution: 0.05
+      robot_radius: 0.45
+      plugins: ["obstacle_layer", "inflation_layer"]
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: true
+          marking: true
+          data_type: "LaserScan"
+          raytrace_max_range: 8.0
+          raytrace_min_range: 0.0
+          obstacle_max_range: 6.0
+          obstacle_min_range: 0.0
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 3.0
+        inflation_radius: 0.55
+      always_send_full_costmap: true
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      use_sim_time: true
+      update_frequency: 1.0
+      publish_frequency: 1.0
+      global_frame: map
+      robot_base_frame: base_footprint
+      rolling_window: true
+      width: 20
+      height: 20
+      resolution: 0.05
+      robot_radius: 0.45
+      track_unknown_space: false
+      # social_layer LAST so it stamps human cost on top; it makes the global planner
+      # route AROUND people. Soft cost (< lethal) so passable gaps stay passable.
+      plugins: ["obstacle_layer", "inflation_layer", "social_layer"]
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: true
+          marking: true
+          data_type: "LaserScan"
+          raytrace_max_range: 8.0
+          raytrace_min_range: 0.0
+          obstacle_max_range: 6.0
+          obstacle_min_range: 0.0
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 3.0
+        inflation_radius: 0.55
+      social_layer:
+        plugin: "social_nav_costs/SocialLayer"
+        enabled: true
+        humans_topic: /social_nav/humans
+        front_sigma: 1.0       # personal-space size ahead of a person (m)
+        side_sigma: 0.7        # to the side (m)
+        rear_sigma: 0.5        # behind (m)
+        max_cost: 200.0        # peak cost stamped (< 253 lethal => soft, routes around but not a wall)
+        cutoff_distance: 3.0   # stamp cost out to this radius (m)
+        human_timeout: 1.0
+      always_send_full_costmap: true
+
+planner_server:
+  ros__parameters:
+    use_sim_time: true
+    expected_planner_frequency: 1.0
+    planner_plugins: ["GridBased"]
+    GridBased:
+      plugin: "nav2_navfn_planner/NavfnPlanner"
+      tolerance: 0.5
+      use_astar: false
+      allow_unknown: true
+
+behavior_server:
+  ros__parameters:
+    use_sim_time: true
+    costmap_topic: local_costmap/costmap_raw
+    footprint_topic: local_costmap/published_footprint
+    cycle_frequency: 10.0
+    behavior_plugins: ["spin", "backup", "drive_on_heading", "wait"]
+    spin:
+      plugin: "nav2_behaviors/Spin"
+    backup:
+      plugin: "nav2_behaviors/BackUp"
+    drive_on_heading:
+      plugin: "nav2_behaviors/DriveOnHeading"
+    wait:
+      plugin: "nav2_behaviors/Wait"
+    global_frame: odom
+    robot_base_frame: base_footprint
+    transform_tolerance: 0.1
+    simulate_ahead_time: 2.0
+    max_rotational_vel: 1.0
+    min_rotational_vel: 0.4
+    rotational_acc_lim: 3.2
+
+bt_navigator:
+  ros__parameters:
+    use_sim_time: true
+    global_frame: map
+    robot_base_frame: base_footprint
+    odom_topic: /odom
+    bt_loop_duration: 10
+    default_server_timeout: 20
+    plugin_lib_names:
+    - nav2_compute_path_to_pose_action_bt_node
+    - nav2_compute_path_through_poses_action_bt_node
+    - nav2_smooth_path_action_bt_node
+    - nav2_follow_path_action_bt_node
+    - nav2_spin_action_bt_node
+    - nav2_wait_action_bt_node
+    - nav2_assisted_teleop_action_bt_node
+    - nav2_back_up_action_bt_node
+    - nav2_drive_on_heading_bt_node
+    - nav2_clear_costmap_service_bt_node
+    - nav2_is_stuck_condition_bt_node
+    - nav2_goal_reached_condition_bt_node
+    - nav2_goal_updated_condition_bt_node
+    - nav2_globally_updated_goal_condition_bt_node
+    - nav2_is_path_valid_condition_bt_node
+    - nav2_initial_pose_received_condition_bt_node
+    - nav2_reinitialize_global_localization_service_bt_node
+    - nav2_rate_controller_bt_node
+    - nav2_distance_controller_bt_node
+    - nav2_speed_controller_bt_node
+    - nav2_truncate_path_action_bt_node
+    - nav2_truncate_path_local_action_bt_node
+    - nav2_goal_updater_node_bt_node
+    - nav2_recovery_node_bt_node
+    - nav2_pipeline_sequence_bt_node
+    - nav2_round_robin_node_bt_node
+    - nav2_transform_available_condition_bt_node
+    - nav2_time_expired_condition_bt_node
+    - nav2_path_expiring_timer_condition
+    - nav2_distance_traveled_condition_bt_node
+    - nav2_single_trigger_bt_node
+    - nav2_goal_updated_controller_bt_node
+    - nav2_is_battery_low_condition_bt_node
+    - nav2_navigate_through_poses_action_bt_node
+    - nav2_navigate_to_pose_action_bt_node
+    - nav2_remove_passed_goals_action_bt_node
+    - nav2_planner_selector_bt_node
+    - nav2_controller_selector_bt_node
+    - nav2_goal_checker_selector_bt_node
+    - nav2_controller_cancel_bt_node
+    - nav2_path_longer_on_approach_bt_node
+    - nav2_wait_cancel_bt_node
+    - nav2_spin_cancel_bt_node
+    - nav2_back_up_cancel_bt_node
+    - nav2_assisted_teleop_cancel_bt_node
+    - nav2_drive_on_heading_cancel_bt_node
+    - nav2_is_battery_charging_condition_bt_node
+
+lifecycle_manager_navigation:
+  ros__parameters:
+    use_sim_time: true
+    autostart: true
+    node_names:
+    - controller_server
+    - planner_server
+    - behavior_server
+    - bt_navigator

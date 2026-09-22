@@ -19,7 +19,14 @@ WALKING = "walking"
 CROSSING = "crossing"
 MIXED = "mixed"
 GROUP = "group"
-PROFILES = (WALKING, CROSSING, MIXED, GROUP)
+HEAD_ON = "head_on"
+TURNING = "turning"
+SAME_DIRECTION = "same_direction"
+BLOCKER = "blocker"
+STOP_GO = "stop_go"
+MERGE = "merge"
+PROFILES = (WALKING, CROSSING, MIXED, GROUP, HEAD_ON, TURNING,
+            SAME_DIRECTION, BLOCKER, STOP_GO, MERGE)
 
 
 @dataclass(frozen=True)
@@ -48,6 +55,8 @@ class Pedestrian:
     waypoints: List[Tuple[float, float]]
     speed: float
     group_id: int = -1
+    stop_start: float = -1.0     # sudden-stop schedule (s from route start); < 0 disables
+    stop_duration: float = 0.0   # how long the pedestrian holds position when it stops
 
     @property
     def start(self) -> Tuple[float, float]:
@@ -80,10 +89,8 @@ class SpawnConfig:
 
 
 def _behavior_for(profile: str, index: int) -> str:
-    if profile == WALKING:
-        return WALKING
-    if profile == CROSSING:
-        return CROSSING
+    if profile in (WALKING, CROSSING, HEAD_ON, TURNING, SAME_DIRECTION, BLOCKER, STOP_GO):
+        return profile
     # MIXED: even indices cross (guarantees at least one crosser), odd walk along.
     return CROSSING if index % 2 == 0 else WALKING
 
@@ -118,6 +125,61 @@ def _walk_route(cfg: SpawnConfig, spawn: Tuple[float, float]):
     mid = 0.5 * (cfg.walk_xmin + cfg.walk_xmax)
     target_x = cfg.walk_xmax if sx <= mid else cfg.walk_xmin
     return [(sx, sy), (target_x, sy)]
+
+
+def _head_on_route(cfg: SpawnConfig, index: int) -> List[Tuple[float, float]]:
+    """A pedestrian on the robot's lane (y approx 0) walking from far ahead toward the robot
+    start, i.e. head-on. Multiple head-on walkers are staggered in x and slightly in y."""
+    y = 0.0 if index == 0 else (0.4 if index % 2 else -0.4)
+    x_far = min(cfg.walk_xmax, 8.0) - index * 1.6
+    return [(x_far, y), (1.5, y)]
+
+
+def _turning_route(cfg: SpawnConfig, index: int) -> List[Tuple[float, float]]:
+    """An L-shaped route: walk east along the sidewalk, then turn south across the robot's
+    lane. The bend gives the planner a genuine direction change to react to."""
+    sx = 2.0 + index * 1.2
+    turn_x = 6.0 + index * 1.0
+    return [(sx, 1.0), (turn_x, 1.0), (turn_x, -0.5)]
+
+
+def _same_direction_route(cfg: SpawnConfig, index: int) -> List[Tuple[float, float]]:
+    """Walk EAST along the robot's lane (same direction as the robot), so the robot overtakes."""
+    y = 0.0 if index == 0 else (0.4 if index % 2 else -0.4)
+    x_near = 2.0 + index * 1.2
+    return [(x_near, y), (cfg.walk_xmax, y)]
+
+
+def _blocker_route(cfg: SpawnConfig, index: int) -> List[Tuple[float, float]]:
+    """A person standing still ON the robot's lane, forcing a go-around (a zero-length route is
+    stationary in pose_at_time)."""
+    x = 4.5 + index * 1.5
+    return [(x, 0.0), (x, 0.0)]
+
+
+def _stop_go_route(cfg: SpawnConfig, index: int) -> List[Tuple[float, float]]:
+    """A person crossing the lane; paired with a stop schedule (set by the caller) they pause
+    mid-crossing, right on the robot's path."""
+    x = cfg.crossing_x + index * 1.0
+    return [(x, cfg.crossing_north), (x, cfg.crossing_south)]
+
+
+def _plan_merge(cfg: SpawnConfig) -> List[Pedestrian]:
+    """Two small groups on separate lanes whose routes bend toward a shared centreline, so they
+    converge into one stream. This approximates merge dynamics with converging poly-line routes;
+    group membership itself is fixed (the model has no time-varying membership)."""
+    people: List[Pedestrian] = []
+    per_group = max(2, cfg.num_humans // 2)
+    merge_x = 0.5 * (2.0 + cfg.walk_xmax)
+    idx = 0
+    for gid, lane_y in enumerate((1.2, -1.2)):
+        for k in range(per_group):
+            sx = 2.0 + k * 0.6  # stagger members along the lane
+            route = [(sx, lane_y), (merge_x, lane_y), (cfg.walk_xmax, 0.0)]
+            people.append(Pedestrian(id=idx, name=f"pedestrian_{idx}", behavior=MERGE,
+                                     waypoints=route, speed=cfg.speed, group_id=gid))
+            idx += 1
+    return people
 
 
 def _place_crossing_x(cfg: SpawnConfig, placed: List[Tuple[float, float]]) -> float:
@@ -166,19 +228,23 @@ def _plan_groups(cfg: SpawnConfig, rng: random.Random) -> List[Pedestrian]:
     people: List[Pedestrian] = []
     idx = 0
     for gid, size in enumerate(_group_sizes(cfg.num_humans, cfg.group_size)):
-        half_width = 0.5 * (size - 1) * cfg.group_spacing
-        center = _sample_spawn(cfg, rng, placed, extra_margin=half_width)
+        cluster_r = cfg.group_spacing * (1 + (size - 1) // 2)
+        center = _sample_spawn(cfg, rng, placed, extra_margin=cluster_r)
         if center is None:
             raise ValueError(
                 f"could not place group {gid} (size {size}) in region {cfg.spawn_region}; "
                 "loosen min_separation/group_spacing or widen the region")
         (x0, y0), (x1, y1) = _walk_route(cfg, center)
         seg = math.hypot(x1 - x0, y1 - y0)
-        px, py = (-(y1 - y0) / seg, (x1 - x0) / seg) if seg > 1e-6 else (0.0, 1.0)
+        ux, uy = ((x1 - x0) / seg, (y1 - y0) / seg) if seg > 1e-6 else (1.0, 0.0)
+        px, py = -uy, ux  # perpendicular to travel
         for j in range(size):
-            offset = (j - 0.5 * (size - 1)) * cfg.group_spacing
-            route = [(x0 + px * offset, y0 + py * offset),
-                     (x1 + px * offset, y1 + py * offset)]
+            # Compact 2-wide cluster: columns spread laterally, rows trail behind, so the
+            # group stays about one lane wide instead of a single wide row.
+            lateral = (j % 2 - 0.5) * cfg.group_spacing
+            along = -(j // 2) * cfg.group_spacing
+            dx, dy = px * lateral + ux * along, py * lateral + uy * along
+            route = [(x0 + dx, y0 + dy), (x1 + dx, y1 + dy)]
             placed.append(route[0])
             people.append(Pedestrian(id=idx, name=f"pedestrian_{idx}", behavior=GROUP,
                                      waypoints=route, speed=cfg.speed, group_id=gid))
@@ -196,14 +262,35 @@ def plan_pedestrians(cfg: SpawnConfig) -> List[Pedestrian]:
     rng = random.Random(cfg.seed)
     if cfg.behavior_profile == GROUP:
         return _plan_groups(cfg, rng)
+    if cfg.behavior_profile == MERGE:
+        return _plan_merge(cfg)
     placed: List[Tuple[float, float]] = []
     people: List[Pedestrian] = []
     for i in range(cfg.num_humans):
         behavior = _behavior_for(cfg.behavior_profile, i)
+        stop_start, stop_duration = -1.0, 0.0
         if behavior == CROSSING:
             x = _place_crossing_x(cfg, placed)
             route = [(x, cfg.crossing_north), (x, cfg.crossing_south)]
             spawn = route[0]
+        elif behavior == HEAD_ON:
+            route = _head_on_route(cfg, i)
+            spawn = route[0]
+        elif behavior == TURNING:
+            route = _turning_route(cfg, i)
+            spawn = route[0]
+        elif behavior == SAME_DIRECTION:
+            route = _same_direction_route(cfg, i)
+            spawn = route[0]
+        elif behavior == BLOCKER:
+            route = _blocker_route(cfg, i)
+            spawn = route[0]
+        elif behavior == STOP_GO:
+            route = _stop_go_route(cfg, i)
+            spawn = route[0]
+            # Pause once the crosser reaches the robot's lane (~y=0), so it stops in the path.
+            stop_start = cfg.crossing_north / max(cfg.speed, 1e-6)
+            stop_duration = 4.0
         else:
             spawn = _sample_spawn(cfg, rng, placed)
             if spawn is None:
@@ -214,27 +301,54 @@ def plan_pedestrians(cfg: SpawnConfig) -> List[Pedestrian]:
             route = _walk_route(cfg, spawn)
         placed.append(spawn)
         people.append(Pedestrian(id=i, name=f"pedestrian_{i}", behavior=behavior,
-                                 waypoints=route, speed=cfg.speed))
+                                 waypoints=route, speed=cfg.speed,
+                                 stop_start=stop_start, stop_duration=stop_duration))
     return people
 
 
-def pose_at_time(ped: Pedestrian, t: float) -> Tuple[float, float, float, float, float]:
-    """Pose of a pedestrian at elapsed sim time t (s). The route is walked start->end->start at
-    constant speed. Returns (x, y, yaw, vx, vy); a zero-length route yields a stationary pose."""
-    (x0, y0), (x1, y1) = ped.waypoints[0], ped.waypoints[-1]
-    seg = math.hypot(x1 - x0, y1 - y0)
-    if seg < 1e-6 or ped.speed <= 0.0:
+def _pose_on_route(ped: Pedestrian, t: float) -> Tuple[float, float, float, float, float]:
+    """Position along the poly-line at continuous time t, walked start->end->start, repeating."""
+    pts = ped.waypoints
+    seglens = [math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1])
+               for i in range(len(pts) - 1)]
+    total = sum(seglens)
+    if total < 1e-6 or ped.speed <= 0.0 or len(pts) < 2:
+        x0, y0 = pts[0]
         return (x0, y0, 0.0, 0.0, 0.0)
 
-    period = 2.0 * seg / ped.speed  # out and back
-    phase = (t % period) / period
-    # Triangle wave: 0->1 over the first half, 1->0 over the second.
-    frac = 2.0 * phase if phase < 0.5 else 2.0 * (1.0 - phase)
-    direction = 1.0 if phase < 0.5 else -1.0
+    period = 2.0 * total / ped.speed  # out and back
+    dist = ped.speed * (t % period)
+    if dist <= total:
+        s, forward = dist, 1.0
+    else:
+        s, forward = 2.0 * total - dist, -1.0
 
-    ux, uy = (x1 - x0) / seg, (y1 - y0) / seg
-    x = x0 + (x1 - x0) * frac
-    y = y0 + (y1 - y0) * frac
-    vx, vy = ux * ped.speed * direction, uy * ped.speed * direction
-    yaw = math.atan2(vy, vx)
-    return (x, y, yaw, vx, vy)
+    acc = 0.0
+    for i, seglen in enumerate(seglens):
+        if seglen < 1e-9:
+            continue
+        if acc + seglen >= s or i == len(seglens) - 1:
+            local = min(max((s - acc) / seglen, 0.0), 1.0)
+            (ax, ay), (bx, by) = pts[i], pts[i + 1]
+            ux, uy = (bx - ax) / seglen, (by - ay) / seglen
+            x, y = ax + (bx - ax) * local, ay + (by - ay) * local
+            vx, vy = ux * ped.speed * forward, uy * ped.speed * forward
+            return (x, y, math.atan2(vy, vx), vx, vy)
+        acc += seglen
+    x0, y0 = pts[0]
+    return (x0, y0, 0.0, 0.0, 0.0)
+
+
+def pose_at_time(ped: Pedestrian, t: float) -> Tuple[float, float, float, float, float]:
+    """Pose at elapsed sim time t (s). Walks the whole waypoint poly-line start->end->start at
+    constant speed (routes may bend). If a sudden-stop schedule is set, the pedestrian holds
+    position (zero velocity) during [stop_start, stop_start+stop_duration) and resumes after.
+    Returns (x, y, yaw, vx, vy). For a plain 2-point route with no stop this is a straight
+    out-and-back."""
+    if ped.stop_start >= 0.0 and ped.stop_duration > 0.0:
+        if ped.stop_start <= t < ped.stop_start + ped.stop_duration:
+            x, y, yaw, _, _ = _pose_on_route(ped, ped.stop_start)
+            return (x, y, yaw, 0.0, 0.0)
+        if t >= ped.stop_start + ped.stop_duration:
+            t = t - ped.stop_duration
+    return _pose_on_route(ped, t)

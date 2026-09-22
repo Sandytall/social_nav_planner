@@ -30,7 +30,9 @@ set(dependencies
   social_nav_core
 )
 
-add_library(${PROJECT_NAME} SHARED src/social_layer.cpp)
+add_library(${PROJECT_NAME} SHARED
+  src/social_layer.cpp
+  src/restricted_zone_layer.cpp)
 target_include_directories(${PROJECT_NAME} PUBLIC
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
   "$<INSTALL_INTERFACE:include>"
@@ -49,5 +51,19 @@ install(FILES social_layer_plugin.xml DESTINATION share/${PROJECT_NAME})
 ament_export_include_directories(include)
 ament_export_libraries(${PROJECT_NAME})
 ament_export_dependencies(${dependencies})
+
+if(BUILD_TESTING)
+  # Style/lint deferred to CI (matches the other packages here); logic + plugin-load only.
+  find_package(ament_cmake_gtest REQUIRED)
+
+  # Zone-parsing logic (normalization, malformed-tail handling): no running node needed.
+  ament_add_gtest(${PROJECT_NAME}_restricted_zone_tests test/test_restricted_zone_layer.cpp)
+  target_link_libraries(${PROJECT_NAME}_restricted_zone_tests ${PROJECT_NAME})
+  ament_target_dependencies(${PROJECT_NAME}_restricted_zone_tests rclcpp nav2_costmap_2d)
+
+  # Proves both layers load via pluginlib exactly as Nav2's costmap does - not a mock.
+  ament_add_gtest(${PROJECT_NAME}_plugin_load_test test/test_plugin_load.cpp)
+  ament_target_dependencies(${PROJECT_NAME}_plugin_load_test pluginlib nav2_costmap_2d)
+endif()
 
 ament_package()

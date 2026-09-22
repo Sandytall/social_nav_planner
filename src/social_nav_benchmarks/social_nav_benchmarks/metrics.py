@@ -95,6 +95,7 @@ def _nearest_pose(odom, t):
 
 
 SUMMARY_FIELDS = [
+    "planner",
     "scenario", "run", "success", "status", "time_to_goal_s", "path_length_m",
     "path_efficiency", "avg_velocity_mps", "min_human_distance_m", "avg_human_distance_m",
     "collision", "social_intrusion_ratio", "num_stops", "oscillations",

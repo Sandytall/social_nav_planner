@@ -8,4 +8,14 @@
       routes around people. Cost is soft (below lethal).
     </description>
   </class>
+  <class
+    name="social_nav_costs/RestrictedZoneLayer"
+    type="social_nav_costs::RestrictedZoneLayer"
+    base_class_type="nav2_costmap_2d::Layer">
+    <description>
+      Stamps configured axis-aligned restricted rectangles (map frame) into a Nav2 costmap
+      at a high but sub-lethal cost, so the planner routes around industrial keep-out zones
+      and heavy machinery. Default zone list is empty (a no-op layer).
+    </description>
+  </class>
 </library>
