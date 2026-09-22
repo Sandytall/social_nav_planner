@@ -1,0 +1,172 @@
+<?xml version="1.0"?>
+<!-- MiR-100 robot for the SocialNav Planner, adapted to Gazebo Classic (MASTER_PROMPT §27).
+     Reuses the MiR visual meshes (copied into this package) for looks, but uses primitive
+     collision shapes (Classic handles mesh collision poorly), the Classic diff-drive +
+     ray-sensor plugins, and the same interface our Nav2 config expects:
+       /cmd_vel (in)  /odom (out)  /scan (out)  TF odom->base_footprint.
+     Geometry (wheel separation 0.445, radius 0.0625, mounts) is from the original MiR
+     URDF in ros2_mir_nav2_pick_place-master. -->
+<robot name="mir_social" xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <!-- Absolute file:// path (via $(find-pkg-share ...)) so BOTH gzserver and gzclient can
+       load the meshes. gzclient does not resolve package:// (no ROS plugins), which left
+       the body/casters invisible in the GUI. -->
+  <xacro:property name="mesh" value="file://$(find social_nav_description)/meshes/mir"/>
+  <xacro:property name="wheel_radius" value="0.0625"/>
+  <xacro:property name="wheel_len" value="0.032"/>
+  <xacro:property name="wheel_sep" value="0.445208"/>
+
+  <material name="mir_white"><color rgba="0.9 0.9 0.92 1"/></material>
+  <material name="mir_black"><color rgba="0.1 0.1 0.1 1"/></material>
+  <material name="mir_silver"><color rgba="0.79 0.82 0.93 1"/></material>
+
+  <xacro:macro name="cyl_inertia" params="m r h">
+    <inertial>
+      <mass value="${m}"/>
+      <inertia ixx="${m*(3*r*r+h*h)/12.0}" ixy="0" ixz="0"
+               iyy="${m*(3*r*r+h*h)/12.0}" iyz="0" izz="${m*r*r/2.0}"/>
+    </inertial>
+  </xacro:macro>
+
+  <link name="base_footprint"/>
+  <joint name="base_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+  </joint>
+
+  <link name="base_link">
+    <inertial>
+      <mass value="77.0"/>
+      <origin rpy="0 0 0" xyz="-0.0124 0.0 0.15"/>
+      <inertia ixx="0.834" ixy="0" ixz="0" iyy="1.861" iyz="0" izz="2.182"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0.037646 0 0"/>
+      <geometry><mesh filename="${mesh}/visual/mir_100_base.stl"/></geometry>
+      <material name="mir_white"/>
+    </visual>
+    <!-- Primitive collision box (MiR-100 body ~0.89 x 0.58 x 0.30, bottom above wheels). -->
+    <collision>
+      <origin rpy="0 0 0" xyz="0.037646 0 0.20"/>
+      <geometry><box size="0.89 0.58 0.30"/></geometry>
+    </collision>
+  </link>
+  <gazebo reference="base_link"><material>Gazebo/White</material></gazebo>
+
+  <!-- Drive wheels -->
+  <xacro:macro name="drive_wheel" params="name y">
+    <joint name="${name}_joint" type="continuous">
+      <origin rpy="0 0 0" xyz="0.0 ${y} ${wheel_radius}"/>
+      <parent link="base_link"/>
+      <child link="${name}_link"/>
+      <axis xyz="0 1 0"/>
+    </joint>
+    <link name="${name}_link">
+      <visual>
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <geometry><mesh filename="${mesh}/visual/wheel.stl"/></geometry>
+        <material name="mir_black"/>
+      </visual>
+      <collision>
+        <origin rpy="1.5707963 0 0" xyz="0 0 0"/>
+        <geometry><cylinder length="${wheel_len}" radius="${wheel_radius}"/></geometry>
+      </collision>
+      <xacro:cyl_inertia m="1.0" r="${wheel_radius}" h="${wheel_len}"/>
+    </link>
+    <gazebo reference="${name}_link">
+      <mu1>1.0</mu1><mu2>1.0</mu2><material>Gazebo/FlatBlack</material>
+    </gazebo>
+  </xacro:macro>
+  <xacro:drive_wheel name="left_wheel" y="${wheel_sep/2.0}"/>
+  <xacro:drive_wheel name="right_wheel" y="${-wheel_sep/2.0}"/>
+
+  <!-- Passive casters: MiR caster hub mesh (visual) + low-friction ground sphere (collision). -->
+  <xacro:macro name="caster" params="name x y">
+    <joint name="${name}_joint" type="fixed">
+      <origin rpy="0 0 0" xyz="${x} ${y} 0.1565"/>
+      <parent link="base_link"/>
+      <child link="${name}_link"/>
+    </joint>
+    <link name="${name}_link">
+      <visual>
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <geometry><mesh filename="${mesh}/visual/caster_wheel_base.stl"/></geometry>
+        <material name="mir_silver"/>
+      </visual>
+      <collision>
+        <origin rpy="0 0 0" xyz="-0.0382 0 ${-0.1565 + wheel_radius}"/>
+        <geometry><sphere radius="${wheel_radius}"/></geometry>
+      </collision>
+      <xacro:cyl_inertia m="0.5" r="${wheel_radius}" h="${wheel_len}"/>
+    </link>
+    <gazebo reference="${name}_link">
+      <mu1>0.0</mu1><mu2>0.0</mu2><material>Gazebo/Grey</material>
+    </gazebo>
+  </xacro:macro>
+  <xacro:caster name="fl_caster" x="0.341346" y="0.203"/>
+  <xacro:caster name="fr_caster" x="0.341346" y="-0.203"/>
+  <xacro:caster name="bl_caster" x="-0.270154" y="0.203"/>
+  <xacro:caster name="br_caster" x="-0.270154" y="-0.203"/>
+
+  <!-- SICK lidar (visual mesh) + Gazebo Classic 360-degree ray sensor -> /scan. -->
+  <link name="front_laser_link">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry><mesh filename="${mesh}/visual/sick_lms-100.stl"/></geometry>
+      <material name="mir_black"/>
+    </visual>
+    <xacro:cyl_inertia m="0.5" r="0.05" h="0.05"/>
+  </link>
+  <joint name="front_laser_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="front_laser_link"/>
+    <origin rpy="0 0 0" xyz="0.429646 0.0 0.40"/>
+  </joint>
+
+  <gazebo reference="front_laser_link">
+    <sensor name="front_laser" type="ray">
+      <always_on>true</always_on>
+      <visualize>false</visualize>
+      <update_rate>15</update_rate>
+      <ray>
+        <scan>
+          <horizontal>
+            <samples>360</samples>
+            <resolution>1</resolution>
+            <min_angle>-3.14159</min_angle>
+            <max_angle>3.14159</max_angle>
+          </horizontal>
+        </scan>
+        <range><min>0.20</min><max>12.0</max><resolution>0.01</resolution></range>
+      </ray>
+      <plugin name="laser_plugin" filename="libgazebo_ros_ray_sensor.so">
+        <ros><remapping>~/out:=scan</remapping></ros>
+        <output_type>sensor_msgs/LaserScan</output_type>
+        <frame_name>front_laser_link</frame_name>
+      </plugin>
+    </sensor>
+  </gazebo>
+
+  <!-- Gazebo Classic differential drive -->
+  <gazebo>
+    <plugin name="diff_drive" filename="libgazebo_ros_diff_drive.so">
+      <ros><namespace>/</namespace></ros>
+      <update_rate>30</update_rate>
+      <left_joint>left_wheel_joint</left_joint>
+      <right_joint>right_wheel_joint</right_joint>
+      <wheel_separation>${wheel_sep}</wheel_separation>
+      <wheel_diameter>${2.0*wheel_radius}</wheel_diameter>
+      <max_wheel_torque>60.0</max_wheel_torque>
+      <max_wheel_acceleration>1.5</max_wheel_acceleration>
+      <command_topic>cmd_vel</command_topic>
+      <publish_odom>true</publish_odom>
+      <publish_odom_tf>true</publish_odom_tf>
+      <publish_wheel_tf>true</publish_wheel_tf>
+      <odometry_topic>odom</odometry_topic>
+      <odometry_frame>odom</odometry_frame>
+      <robot_base_frame>base_footprint</robot_base_frame>
+    </plugin>
+  </gazebo>
+
+</robot>

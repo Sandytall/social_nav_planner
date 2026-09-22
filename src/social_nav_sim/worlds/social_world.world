@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<!-- SocialNav test environment (MASTER_PROMPT §27): a bounded area with an internal
+     wall forming a corridor and a couple of obstacles (tables). Gazebo Classic SDF. -->
+<sdf version="1.6">
+  <world name="social_world">
+
+    <include><uri>model://sun</uri></include>
+    <include><uri>model://ground_plane</uri></include>
+
+    <physics type="ode">
+      <max_step_size>0.005</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>200</real_time_update_rate>
+    </physics>
+
+    <!-- Reusable wall macro is not available in SDF; walls are spelled out. -->
+    <model name="walls">
+      <static>true</static>
+
+      <!-- Outer boundary: 10 m x 10 m room, walls 0.1 m thick, 1 m tall. -->
+      <link name="north">
+        <pose>0 5 0.5 0 0 0</pose>
+        <collision name="c"><geometry><box><size>10 0.1 1</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>10 0.1 1</size></box></geometry></visual>
+      </link>
+      <link name="south">
+        <pose>0 -5 0.5 0 0 0</pose>
+        <collision name="c"><geometry><box><size>10 0.1 1</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>10 0.1 1</size></box></geometry></visual>
+      </link>
+      <link name="east">
+        <pose>5 0 0.5 0 0 0</pose>
+        <collision name="c"><geometry><box><size>0.1 10 1</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.1 10 1</size></box></geometry></visual>
+      </link>
+      <link name="west">
+        <pose>-5 0 0.5 0 0 0</pose>
+        <collision name="c"><geometry><box><size>0.1 10 1</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.1 10 1</size></box></geometry></visual>
+      </link>
+
+      <!-- Internal wall creating a ~2.0 m corridor gap (y in [0.0, 2.0]) sized for the
+           MiR-100 (~0.9 x 0.58 m); still exercises §22 corridor behavior. -->
+      <link name="divider_lower">
+        <pose>0 -2.5 0.5 0 0 0</pose>
+        <collision name="c"><geometry><box><size>0.1 5.0 1</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.1 5.0 1</size></box></geometry></visual>
+      </link>
+      <link name="divider_upper">
+        <pose>0 3.5 0.5 0 0 0</pose>
+        <collision name="c"><geometry><box><size>0.1 3.0 1</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.1 3.0 1</size></box></geometry></visual>
+      </link>
+    </model>
+
+    <!-- A table obstacle (§14 static obstacle handling). -->
+    <model name="table">
+      <static>true</static>
+      <link name="link">
+        <pose>-3 2.5 0.4 0 0 0</pose>
+        <collision name="c"><geometry><box><size>1.0 0.6 0.8</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>1.0 0.6 0.8</size></box></geometry></visual>
+      </link>
+    </model>
+
+  </world>
+</sdf>

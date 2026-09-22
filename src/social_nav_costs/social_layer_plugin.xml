@@ -1,0 +1,11 @@
+<library path="social_nav_costs">
+  <class
+    name="social_nav_costs/SocialLayer"
+    type="social_nav_costs::SocialLayer"
+    base_class_type="nav2_costmap_2d::Layer">
+    <description>
+      Stamps anisotropic human personal-space cost into a Nav2 costmap so the planner
+      routes around people (MASTER_PROMPT §15). Cost is soft (below lethal).
+    </description>
+  </class>
+</library>

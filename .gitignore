@@ -1,0 +1,23 @@
+# ROS 2 / colcon build artifacts
+build/
+install/
+log/
+.colcon/
+
+# Python
+*.pyc
+__pycache__/
+*.egg-info/
+.pytest_cache/
+
+# Benchmark / experiment output (never commit generated data, §11)
+results/
+social_nav_results/
+*.bag/
+rosbag2_*/
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store

@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>social_nav_core</name>
+  <version>0.1.0</version>
+  <description>
+    Dependency-light core math for the SocialNav Planner: anisotropic social cost
+    (MASTER_PROMPT §10) and time/distance to closest approach (§11, §12). No ROS or
+    Nav2 types so the math is unit-testable in isolation (§35).
+  </description>
+  <maintainer email="sandeep@origin.tech">Sandeep</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>eigen</depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

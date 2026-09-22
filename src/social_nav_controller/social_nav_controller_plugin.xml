@@ -1,0 +1,11 @@
+<library path="social_nav_controller">
+  <class
+    name="social_nav_controller/SocialNavController"
+    type="social_nav_controller::SocialNavController"
+    base_class_type="nav2_core::Controller">
+    <description>
+      Socially-aware Nav2 controller: follows the global plan and (in later phases)
+      scores sampled trajectories against a human-aware social cost model.
+    </description>
+  </class>
+</library>

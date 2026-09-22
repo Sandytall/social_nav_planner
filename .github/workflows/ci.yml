@@ -1,0 +1,47 @@
+name: CI
+
+# Build + unit tests in a ROS 2 Humble container. Does NOT need a physical robot or a
+# display (MASTER_PROMPT §57). Simulation/benchmark runs need Gazebo + a GPU and are run
+# on a workstation (see docs/BENCHMARKING.md), not on hosted CI runners.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-22.04
+    container:
+      image: ros:humble
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            python3-colcon-common-extensions \
+            ros-humble-navigation2 ros-humble-nav2-bringup ros-humble-nav2-costmap-2d \
+            ros-humble-diagnostic-updater \
+            ros-humble-gazebo-ros-pkgs ros-humble-gazebo-plugins \
+            ros-humble-xacro ros-humble-robot-state-publisher
+
+      - name: Build
+        shell: bash
+        run: |
+          source /opt/ros/humble/setup.bash
+          colcon build --symlink-install
+
+      - name: Unit tests (GoogleTest, §35)
+        shell: bash
+        run: |
+          source /opt/ros/humble/setup.bash
+          source install/setup.bash
+          colcon test --packages-select \
+            social_nav_core social_nav_prediction social_nav_human_model \
+            social_nav_controller --event-handlers console_direct+
+          colcon test-result --verbose
+
+  # TODO(§57): add a clang-format / clang-tidy lint job once SPDX license headers are added
+  #            (currently deferred; see IMPLEMENTATION_STATUS.md "Run/CI gotchas").

@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>social_nav_controller</name>
+  <version>0.1.0</version>
+  <description>
+    Socially-aware Nav2 controller plugin for the SocialNav Planner (MASTER_PROMPT §25).
+    Phase 2 follows the global plan (regulated pure pursuit); later phases add sampled
+    trajectory generation and social-cost scoring.
+  </description>
+  <maintainer email="sandeep@origin.tech">Sandeep</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>rclcpp_lifecycle</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>nav2_core</depend>
+  <depend>nav2_costmap_2d</depend>
+  <depend>nav2_util</depend>
+  <depend>pluginlib</depend>
+  <depend>tf2_ros</depend>
+  <depend>eigen</depend>
+  <depend>social_nav_core</depend>
+  <depend>social_nav_msgs</depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+    <nav2_core plugin="${prefix}/social_nav_controller_plugin.xml" />
+  </export>
+</package>
