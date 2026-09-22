@@ -1,8 +1,8 @@
-// Anisotropic social cost around a human (MASTER_PROMPT §9, §10).
+// Anisotropic social cost around a human.
 //
 // A human is NOT a circle. The comfortable clearance is larger in front than to the
-// side, and larger to the side than behind (§9: front > side > rear). We model this as
-// an anisotropic Gaussian in the human's own heading frame (§10):
+// side, and larger to the side than behind (front > side > rear). We model this as
+// an anisotropic Gaussian in the human's own heading frame:
 //
 //   C = exp( -( x^2 / (2 sigma_x^2) + y^2 / (2 sigma_y^2) ) )
 //
@@ -17,7 +17,7 @@
 namespace social_nav_core
 {
 
-/// Shape of one human's social zone (§9, §15 parameters front/side/rear_sigma).
+/// Shape of one human's social zone (front/side/rear_sigma parameters).
 /// All sigmas are standard deviations in metres and must be strictly positive.
 struct SocialZoneParams
 {

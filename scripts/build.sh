@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the SocialNav workspace (MASTER_PROMPT §42).
+# Build the SocialNav workspace.
 # No `set -u`: sourcing ROS setup.bash references unbound vars (AMENT_TRACE_*).
 set -eo pipefail
 WS="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

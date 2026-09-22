@@ -1,5 +1,5 @@
-"""social-nav-benchmark: run scenarios headless, record metrics, write results
-(MASTER_PROMPT §29, §38, §39). Do NOT cherry-pick; run all trials, keep every result.
+"""social-nav-benchmark: run scenarios headless, record metrics, write results.
+Do NOT cherry-pick; run all trials and keep every result.
 
   social-nav-benchmark --scenario blocker_on_path --runs 5
   social-nav-benchmark --scenario all --runs 20
@@ -164,7 +164,7 @@ def run_one(scenario_name, run_idx, goal, timeout_s, logdir):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="SocialNav benchmark runner (§29)")
+    ap = argparse.ArgumentParser(description="SocialNav benchmark runner")
     ap.add_argument("--scenario", default="all")
     ap.add_argument("--runs", type=int, default=3)
     ap.add_argument("--output", default=os.path.expanduser("~/social_nav_results"))
@@ -179,7 +179,7 @@ def main():
     logdir = os.path.join(outdir, "logs")
     os.makedirs(logdir, exist_ok=True)
 
-    # Reproducibility metadata (§39).
+    # Reproducibility metadata.
     meta = {
         "timestamp_utc": stamp,
         "params_file": os.environ.get("SOCIAL_NAV_PARAMS", "default (shipped nav2_params.yaml)"),
@@ -245,7 +245,7 @@ def _write_report(outdir, rows, names, meta):
             f"| {name} | {succ}/{len(sub)} | {coll} | {min_clear} | "
             f"{avg(tgoals)} | {avg(p95)} |")
     lines += ["", "Full per-run numbers in `summary.csv`. Raw data in the per-run `*.json`.",
-              "", "**§62:** every number here is measured from an actual run; none fabricated."]
+              "", "Every number above is measured from an actual run; none are fabricated."]
     with open(os.path.join(outdir, "report.md"), "w") as f:
         f.write("\n".join(lines) + "\n")
 

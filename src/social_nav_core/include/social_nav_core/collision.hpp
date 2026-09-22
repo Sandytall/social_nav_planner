@@ -1,6 +1,6 @@
-// Trajectory collision checking (MASTER_PROMPT §17-18).
+// Trajectory collision checking.
 //
-// Safety is a HARD constraint (§18): a trajectory whose footprint touches an obstacle is
+// Safety is a HARD constraint: a trajectory whose footprint touches an obstacle is
 // rejected outright, never traded off against a lower social cost. Here we model the
 // robot footprint as a disc of `robot_radius` and obstacles as points (e.g. lethal
 // costmap cells or laser returns).
@@ -23,7 +23,7 @@ double minObstacleClearance(
   const Trajectory & traj, const std::vector<Eigen::Vector2d> & obstacles);
 
 /// True if the disc footprint (radius `robot_radius`) collides with any obstacle at any
-/// point along the trajectory. A hard-reject test (§18).
+/// point along the trajectory. A hard-reject test.
 bool inCollision(
   const Trajectory & traj,
   const std::vector<Eigen::Vector2d> & obstacles,

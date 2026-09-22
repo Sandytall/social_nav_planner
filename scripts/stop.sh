@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Force-stop everything the SocialNav demo starts (MASTER_PROMPT §56 troubleshooting).
+# Force-stop everything the SocialNav demo starts.
 # Gazebo Classic's gzserver/gzclient often ignore Ctrl-C and linger, holding the master
 # port (11345) so the next launch fails with "Unable to start server". Run this to recover.
 #

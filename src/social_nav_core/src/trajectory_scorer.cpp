@@ -68,14 +68,14 @@ CostBreakdown scoreTrajectory(
     }
   }
 
-  // Human social cost: anisotropic cost summed over points and humans (§10).
+  // Human social cost: anisotropic cost summed over points and humans.
   for (const auto & h : ctx.humans) {
     for (const auto & pt : traj.points) {
       cb.human += anisotropicSocialCost(h.position, h.heading, xy(pt), h.zone);
     }
   }
 
-  // Time-to-collision with each human, using the robot's initial heading velocity (§11).
+  // Time-to-collision with each human, using the robot's initial heading velocity.
   const Eigen::Vector2d v_robot = v * Eigen::Vector2d(std::cos(front.pose.theta),
       std::sin(front.pose.theta));
   for (const auto & h : ctx.humans) {
@@ -88,7 +88,7 @@ CostBreakdown scoreTrajectory(
     }
   }
 
-  // Group intrusion: penalise points inside a group's bounding disc (§13).
+  // Group intrusion: penalise points inside a group's bounding disc.
   for (const auto & g : ctx.groups) {
     if (g.radius <= 0.0) {
       continue;
@@ -144,8 +144,6 @@ int selectBestTrajectory(
   return best_idx;
 }
 
-// ===== Behavior modes =====
-
 const char * toString(BehaviorMode mode)
 {
   switch (mode) {
@@ -187,7 +185,7 @@ BehaviorMode nextMode(
   if (static_cast<int>(up) > cur) {
     return up;
   }
-  // De-escalate only when the widened thresholds also say we are calmer (§23 hysteresis).
+  // De-escalate only when the widened thresholds also say we are calmer (hysteresis).
   const BehaviorMode down = classify(in, th, 1.0 + th.hysteresis);
   if (static_cast<int>(down) < cur) {
     return down;

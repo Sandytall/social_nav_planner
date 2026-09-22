@@ -1,4 +1,4 @@
-# Troubleshooting (§56)
+# Troubleshooting
 
 Issues actually hit while building this project, with fixes.
 
@@ -42,6 +42,6 @@ Issues actually hit while building this project, with fixes.
 ## Humans not affecting the robot
 
 - **Robot drives through a person** — the human data is likely stale: publishers must stamp
-  on **sim time** (`use_sim_time:=true`), or the controller/SocialLayer drop it (§54). The
+  on **sim time** (`use_sim_time:=true`), or the controller/SocialLayer drop it. The
   `human_publisher` node does this.
 - Also confirm `/social_nav/humans` is actually publishing (`ros2 topic hz /social_nav/humans`).

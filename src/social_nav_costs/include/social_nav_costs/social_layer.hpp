@@ -1,7 +1,7 @@
 // SocialLayer: a Nav2 costmap layer that stamps each person's anisotropic personal-space
-// cost into the costmap (MASTER_PROMPT §15). Added to the GLOBAL costmap it makes the
+// cost into the costmap. Added to the GLOBAL costmap it makes the
 // global planner route AROUND people; the cost is kept below the lethal/inscribed band so
-// a physically-passable gap never becomes impassable (§22).
+// a physically-passable gap never becomes impassable.
 #ifndef SOCIAL_NAV_COSTS__SOCIAL_LAYER_HPP_
 #define SOCIAL_NAV_COSTS__SOCIAL_LAYER_HPP_
 
@@ -44,14 +44,14 @@ private:
   void humansCallback(social_nav_msgs::msg::HumanArray::SharedPtr msg);
 
   /// Snapshot the freshest non-stale people (already in the costmap's global frame in the
-  /// demo, where map==odom). Returns empty if the data is stale (§54).
+  /// demo, where map==odom). Returns empty if the data is stale.
   std::vector<Person> currentPeople();
 
   rclcpp::Subscription<social_nav_msgs::msg::HumanArray>::SharedPtr sub_;
   std::mutex mutex_;
   social_nav_msgs::msg::HumanArray latest_;
 
-  // Parameters (§15).
+  // Parameters.
   bool enabled_param_{true};
   double front_sigma_{1.0};
   double side_sigma_{0.7};

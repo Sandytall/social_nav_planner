@@ -1,7 +1,7 @@
 # SocialNav — Parameter & Tuning Guide
 
-A hands-on guide to every knob on the `SocialNavController`, what it does, and which way
-to turn it. **This is yours to experiment with** — change a value, rebuild, run, watch.
+A guide to each parameter on the `SocialNavController`, what it does, and which way
+to turn it. Change a value, relaunch, and watch the behaviour change.
 
 All parameters live in one file:
 
@@ -87,7 +87,7 @@ On top of that, **behavior modes** scale the whole speed down near people
 | `ttc_danger_distance` | A predicted pass closer than this counts as dangerous (m) | treats more passes as risky | only very close passes |
 | `deviation_weight` | Cost of leaving the reliable base command | **hugs the plan** (slows/stops for a blocker) | **detours more freely** (but too low = wanders) |
 
-## Behavior-mode knobs (§20)
+## Behavior-mode knobs
 
 Modes scale the whole speed: NORMAL = 1.0, CAUTIOUS = 0.6, CROWDED = 0.4, EMERGENCY = 0.
 
@@ -98,7 +98,7 @@ Modes scale the whole speed: NORMAL = 1.0, CAUTIOUS = 0.6, CROWDED = 0.4, EMERGE
 | `emergency_clearance` | Nearest person closer than this (m) → EMERGENCY (stop) |
 | `emergency_ttc` | Predicted collision sooner than this (s) → EMERGENCY (stop) |
 | `crowded_num_humans` | This many people or more → at least CROWDED |
-| `mode_hysteresis` | How much a reading must clear a threshold before de-escalating, so the mode doesn't flicker (§23) |
+| `mode_hysteresis` | How much a reading must clear a threshold before de-escalating, so the mode doesn't flicker |
 
 ---
 
@@ -110,17 +110,18 @@ Modes scale the whole speed: NORMAL = 1.0, CAUTIOUS = 0.6, CROWDED = 0.4, EMERGE
 - **Stop hugging people's front** → raise `front_social_sigma` (people care most about space ahead of them).
 - **Take smoother, wider turns** → raise `lookahead_dist`.
 - **Turn more precisely in tight spots** → lower `lookahead_dist`, lower `rotate_in_place_threshold`.
-- **Detour around a person instead of stopping** → lower `deviation_weight`. *But* to fully route
-  around a person standing **on** the path, the global planner has to know about them — that
-  needs the **SocialLayer costmap (phase D)**, coming next. Until then the robot slows and
-  keeps clearance for a blocker, and passes people who are beside the path.
+- **Detour around a person instead of stopping** → lower `deviation_weight` so the controller
+  is freer to leave the pure-pursuit line. The global planner also routes around people via the
+  `SocialLayer` (`social_nav_costs`), which paints anisotropic human cost into the global
+  costmap — raise its `weight` to push global paths wider around people.
 
-## Current known behavior (honest)
+## Behaviour by scenario
 
-- No people: follows the plan to the goal reliably (~17 s in the demo world). ✅
-- Person **beside** the route: passes, keeping clearance. ✅
-- Person **standing on** the route: slows and stops at a respectful distance and waits
-  (valid §21/§24). Full drive-around is the SocialLayer, phase D. ⏳
+- No people: follows the plan to the goal reliably (~17 s in the demo world).
+- Person **beside** the route: passes, keeping clearance.
+- Person **standing on** the route: the `SocialLayer` reroutes the global path around them
+  (~1.5 m clearance in the demo); if the corridor is too narrow to pass, the controller slows
+  and holds at a respectful distance.
 - Moving/crossing person: `weights.ttc` makes it slow/yield; tune `ttc_horizon` for how
   early it reacts.
 

@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- MiR-100 robot for the SocialNav Planner, adapted to Gazebo Classic (MASTER_PROMPT §27).
+<!-- MiR-100 robot for the SocialNav Planner, adapted to Gazebo Classic.
      Reuses the MiR visual meshes (copied into this package) for looks, but uses primitive
      collision shapes (Classic handles mesh collision poorly), the Classic diff-drive +
      ray-sensor plugins, and the same interface our Nav2 config expects:

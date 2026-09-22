@@ -24,7 +24,7 @@ GroupingParams params()
 }
 }  // namespace
 
-TEST(Groups, TwoCloseSimilarHumansFormOneGroup)  // §13, scenario 06
+TEST(Groups, TwoCloseSimilarHumansFormOneGroup)
 {
   const std::vector<HumanForGrouping> humans{
     h(1, 0.0, 0.0, 1.0, 0.0), h(2, 0.8, 0.0, 1.0, 0.0)};

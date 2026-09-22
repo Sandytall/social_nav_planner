@@ -22,7 +22,7 @@ const std::vector<Track> & HumanTracker::update(
   std::vector<bool> track_matched(n_tracks, false);
   std::vector<bool> det_matched(n_dets, false);
 
-  // Greedy nearest-neighbour association within the gating distance (§7). Collect all
+  // Greedy nearest-neighbour association within the gating distance. Collect all
   // admissible pairs, then assign shortest-first so each side is used at most once.
   struct Pair
   {
@@ -79,7 +79,7 @@ const std::vector<Track> & HumanTracker::update(
       it.track.has_velocity && it.track.velocity.norm() < params_.stationary_speed_threshold;
   }
 
-  // Unmatched detections spawn new tracks (§7 track creation).
+  // Unmatched detections spawn new tracks.
   for (std::size_t di = 0; di < n_dets; ++di) {
     if (det_matched[di]) {
       continue;
@@ -94,7 +94,7 @@ const std::vector<Track> & HumanTracker::update(
   }
 
   // Age out tracks not seen for longer than the timeout. A single miss keeps the track
-  // alive (§7): we coast on the last known state until the timeout elapses.
+  // alive: we coast on the last known state until the timeout elapses.
   internal_.erase(
     std::remove_if(
       internal_.begin(), internal_.end(),

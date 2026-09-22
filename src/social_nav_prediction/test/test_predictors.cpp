@@ -26,7 +26,7 @@ TEST(StepCount, DivisibleHorizonKeepsLastStep)
   EXPECT_EQ(predictionStepCount(params(1.0, 0.25)), 4);
 }
 
-TEST(StepCount, InvalidParamsYieldZero)  // §54
+TEST(StepCount, InvalidParamsYieldZero)
 {
   EXPECT_EQ(predictionStepCount(params(3.0, 0.0)), 0);
   EXPECT_EQ(predictionStepCount(params(3.0, -0.1)), 0);
@@ -70,7 +70,7 @@ TEST(ConstantAcceleration, AddsQuadraticTerm)
   EXPECT_NEAR(last.velocity.y(), 2.0, 1e-9);             // v_y = a t
 }
 
-// The distinguishing property of Model C (§8): uncertainty must grow with the horizon.
+// The distinguishing property of Model C: uncertainty must grow with the horizon.
 TEST(UncertaintyAware, UncertaintyIncreasesWithTime)
 {
   HumanMotionState s;
@@ -103,7 +103,7 @@ TEST(UncertaintyAware, ConstantModelsDoNotGrowUncertainty)
   }
 }
 
-TEST(Predictor, InvalidParamsProduceEmptyPath)  // §54 fail-safe
+TEST(Predictor, InvalidParamsProduceEmptyPath)  // fail-safe
 {
   HumanMotionState s;
   s.velocity = Vector2d(1.0, 0.0);

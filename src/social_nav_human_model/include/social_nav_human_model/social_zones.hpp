@@ -1,8 +1,8 @@
-// Layered anisotropic social zones (MASTER_PROMPT §9).
+// Layered anisotropic social zones.
 //
 // A human is not a circle. We model three nested zones - personal, comfort, caution -
 // each an ellipse in the human's heading frame with independent front/side/rear radii so
-// front clearance > side clearance > rear clearance (§9). A query point is classified as
+// front clearance > side clearance > rear clearance. A query point is classified as
 // the innermost zone it falls inside.
 #ifndef SOCIAL_NAV_HUMAN_MODEL__SOCIAL_ZONES_HPP_
 #define SOCIAL_NAV_HUMAN_MODEL__SOCIAL_ZONES_HPP_

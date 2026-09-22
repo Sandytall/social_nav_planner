@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-command SocialNav demo (MASTER_PROMPT §41): Gazebo + Nav2 + our controller, then a
+# One-command SocialNav demo: Gazebo + Nav2 + our controller, then a
 # navigation goal is sent so you can watch the robot route to it (through the corridor
 # gap, around the divider wall).
 #
@@ -14,7 +14,7 @@ GUI="${GUI:-true}"
 GOAL_X="${GOAL_X:-2.5}"
 GOAL_Y="${GOAL_Y:-2.5}"
 
-# --- environment (§56 troubleshooting) ---
+# --- environment ---
 source /opt/ros/humble/setup.bash
 source "$WS/install/setup.bash"
 source /usr/share/gazebo/setup.sh 2>/dev/null || true

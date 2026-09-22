@@ -1,4 +1,4 @@
-"""One-shot SocialNav demo (MASTER_PROMPT §41): Gazebo sim + Nav2 + our controller.
+"""One-shot SocialNav demo: Gazebo sim + Nav2 + our controller.
 
 Usage:
   ros2 launch social_nav_bringup demo.launch.py            # with Gazebo GUI + RViz

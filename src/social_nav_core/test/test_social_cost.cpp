@@ -33,7 +33,7 @@ TEST(SocialCost, DecaysWithDistance)
   EXPECT_GT(near, 0.0);
 }
 
-// §9: comfortable clearance ordering front > side > rear. At equal distance the cost
+// Comfortable clearance ordering front > side > rear. At equal distance the cost
 // should therefore be highest in front and lowest behind.
 TEST(SocialCost, AnisotropyFrontGreaterThanSideGreaterThanRear)
 {

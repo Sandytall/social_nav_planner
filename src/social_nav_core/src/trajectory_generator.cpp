@@ -64,7 +64,7 @@ std::vector<Trajectory> generateTrajectories(
   double w_lo = -limits.max_omega;
   double w_hi = limits.max_omega;
 
-  // Constrain the sampled window to what acceleration allows within one period (§18).
+  // Constrain the sampled window to what acceleration allows within one period.
   if (dt_reachable > 0.0) {
     v_lo = std::max(v_lo, current_vel.vx - limits.max_accel * dt_reachable);
     v_hi = std::min(v_hi, current_vel.vx + limits.max_accel * dt_reachable);

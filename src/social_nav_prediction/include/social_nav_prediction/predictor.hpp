@@ -1,4 +1,4 @@
-// Human motion prediction (MASTER_PROMPT §8).
+// Human motion prediction.
 //
 // Three models, from simplest to most conservative:
 //   A. Constant velocity                  p(t) = p0 + v t
@@ -7,9 +7,9 @@
 //                                         with the horizon so the planner becomes more
 //                                         conservative the further ahead it looks.
 //
-// The library is ROS-free so the models are unit-testable in isolation (§35). A thin
+// The library is ROS-free so the models are unit-testable in isolation. A thin
 // bridge converts a PredictedPath into social_nav_msgs/PredictedHumanTrajectory
-// elsewhere (§5).
+// elsewhere.
 #ifndef SOCIAL_NAV_PREDICTION__PREDICTOR_HPP_
 #define SOCIAL_NAV_PREDICTION__PREDICTOR_HPP_
 
@@ -21,7 +21,7 @@
 namespace social_nav_prediction
 {
 
-/// Current motion estimate for one human (produced by the tracker, §7).
+/// Current motion estimate for one human (produced by the tracker).
 struct HumanMotionState
 {
   Eigen::Vector2d position{0.0, 0.0};
@@ -29,7 +29,7 @@ struct HumanMotionState
   Eigen::Vector2d acceleration{0.0, 0.0};
 };
 
-/// Knobs shared by all predictors (§8, §15/§26 parameters).
+/// Knobs shared by all predictors.
 struct PredictionParams
 {
   double horizon{3.0};                  ///< seconds to predict ahead (> 0)
@@ -39,7 +39,7 @@ struct PredictionParams
 };
 
 /// One predicted sample. `position_stddev` is the 1-sigma isotropic positional
-/// uncertainty (§8, Model C); models A/B report the constant initial value.
+/// uncertainty (Model C); models A/B report the constant initial value.
 struct PredictedState
 {
   double time{0.0};
@@ -56,8 +56,7 @@ struct PredictedPath
   double dt{0.0};
 };
 
-/// Abstract predictor so the planner can swap models via configuration (§8, §49 keep
-/// it modular).
+/// Abstract predictor so the planner can swap models via configuration.
 class MotionPredictor
 {
 public:
@@ -95,7 +94,7 @@ public:
 };
 
 /// Number of future samples for the given params (t = dt .. N*dt <= horizon).
-/// Returns 0 if params are invalid (non-positive dt/horizon) so callers fail safe (§54).
+/// Returns 0 if params are invalid (non-positive dt/horizon) so callers fail safe.
 int predictionStepCount(const PredictionParams & params);
 
 }  // namespace social_nav_prediction

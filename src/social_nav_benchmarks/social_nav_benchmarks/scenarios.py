@@ -1,8 +1,8 @@
-"""Deterministic benchmark scenarios (MASTER_PROMPT §28), sized for the SocialNav demo
-world (10x10 m, corridor gap y in [0,2] at x=0, robot spawns at (-3.5,-3.5, yaw 0.9)).
+"""Deterministic benchmark scenarios, sized for the SocialNav demo world (10x10 m,
+corridor gap y in [0,2] at x=0, robot spawns at (-3.5,-3.5, yaw 0.9)).
 
 Each scenario: humans as "x,y,vx,vy" (map frame, m and m/s; vx=vy=0 => stationary),
-a goal, an expectation string, a per-run timeout, and a seed for reproducibility (§39).
+a goal, an expectation string, a per-run timeout, and a seed for reproducibility.
 """
 
 GOAL = (2.5, 2.5)

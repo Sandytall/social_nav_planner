@@ -12,7 +12,7 @@ double normalizedZoneDistance(
   const Eigen::Vector2d & query,
   const ZoneRadii & radii)
 {
-  // Transform the query into the human's local frame (+x = facing direction), §10.
+  // Transform the query into the human's local frame (+x = facing direction).
   const Eigen::Vector2d offset = query - human_position;
   const double c = std::cos(human_heading);
   const double s = std::sin(human_heading);
@@ -22,7 +22,7 @@ double normalizedZoneDistance(
   const double rx = longitudinal >= 0.0 ? radii.front : radii.rear;
   const double ry = radii.side;
 
-  // Guard against non-positive radii (§54).
+  // Guard against non-positive radii.
   const double ax = std::max(rx, 1e-6);
   const double ay = std::max(ry, 1e-6);
 

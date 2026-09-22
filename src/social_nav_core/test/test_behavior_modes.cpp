@@ -50,7 +50,7 @@ TEST(Modes, EscalatesPromptly)
   EXPECT_EQ(nextMode(BehaviorMode::kNormal, in(3.0, 5), th()), BehaviorMode::kCrowded);
 }
 
-// §23 hysteresis: once CAUTIOUS, clearance just above the threshold does NOT immediately
+// Hysteresis: once CAUTIOUS, clearance just above the threshold does NOT immediately
 // drop back to NORMAL; it must exceed threshold * (1 + hysteresis).
 TEST(Modes, HysteresisPreventsFlapping)
 {

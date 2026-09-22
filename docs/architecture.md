@@ -1,72 +1,54 @@
 # Architecture
 
-The SocialNav planner is a Nav2 controller plugin plus a social costmap layer. It is
-**simulator-agnostic**: it consumes `/scan`, `/odom`, TF, and `/social_nav/humans`, and
-emits `/cmd_vel`.
-
-## Data flow
+The planner is a Nav2 controller plugin plus a social costmap layer. It consumes `/scan`,
+`/odom`, TF, and `/social_nav/humans`, and publishes `/cmd_vel` — nothing simulator-specific.
 
 ```mermaid
 flowchart TD
-    scan[/scan LiDAR/] --> gcm[Nav2 global costmap]
-    scan --> lcm[Nav2 local costmap]
-    humans[/social_nav/humans/] --> social[SocialLayer<br/>anisotropic human cost]
+    scan[/scan/] --> gcm[global costmap]
+    scan --> lcm[local costmap]
+    humans[/social_nav/humans/] --> social[SocialLayer]
     social --> gcm
-    gcm --> planner[Nav2 planner<br/>NavFn: routes AROUND people]
+    gcm --> planner[global planner<br/>routes around people]
     planner -->|global plan| ctrl
     humans --> ctrl
-    lcm --> ctrl[SocialNavController FollowPath]
-    subgraph ctrl[SocialNavController - FollowPath plugin]
-      pp[Pure-pursuit base cmd] --> cand[Candidate rollouts around base]
-      cand --> reject[Hard collision reject<br/>costmap-direct]
-      reject --> score[Social score:<br/>personal-space + TTC + group]
-      score --> mode[Behavior mode speed scale]
+    lcm --> ctrl[SocialNavController]
+    subgraph ctrl[SocialNavController]
+      pp[pure-pursuit base] --> cand[candidate rollouts]
+      cand --> reject[collision reject]
+      reject --> score[social score:<br/>personal space + TTC + group]
+      score --> mode[mode speed scale]
     end
     mode --> cmd[/cmd_vel/]
 ```
 
-## Two layers of social behavior
+## Two layers
 
-1. **Global (SocialLayer, `social_nav_costs`)** — stamps each person's anisotropic
-   personal-space cost into the global costmap. The global planner then plans a path that
-   goes *around* people. The cost is soft (below lethal) so a physically-passable gap is
-   never made impassable (§22).
-2. **Local (`social_nav_controller`)** — a pure-pursuit base command follows the global
-   plan reliably; candidate `(v, ω)` rollouts around it are hard-rejected for collisions,
-   then scored by the social cost model (anisotropic personal space §10, time-to-closest-
-   approach §11, group intrusion §13). A behavior mode (NORMAL/CAUTIOUS/CROWDED/EMERGENCY,
-   §20, with hysteresis §23) scales speed by how close/urgent people are.
+**Global (`social_nav_costs::SocialLayer`)** stamps each person's anisotropic personal-space
+cost into the global costmap, so the global planner plans a path around people. The cost is
+soft (below the lethal/inscribed band) so a passable gap is never turned into a wall.
 
-Design choice: path-following is done by the reliable pure-pursuit base; the social terms
-only *perturb* it. With no people, the controller collapses to pure pursuit (a normal
-planner, §21). This avoids the fragility of a from-scratch DWA cost landscape.
+**Local (`social_nav_controller`)** follows the global plan with a pure-pursuit base
+command. Candidate `(v, ω)` rollouts around that base are rejected if they hit the costmap,
+then scored by the social cost model. A behaviour mode (normal/cautious/crowded/emergency,
+with hysteresis to avoid flapping) scales speed with how close and urgent people are.
 
-## Core math (`social_nav_core`, ROS-free, unit-tested)
+The base command does the path following; the social terms only perturb it. With no people
+the controller reduces to plain pure pursuit. This is deliberate — a from-scratch DWA cost
+landscape was fragile to tune, whereas perturbing a known-good base is stable.
 
-- **Anisotropic social cost** (§10): a Gaussian in the person's heading frame with
-  front > side > rear extent.
-- **Closest approach / TTC** (§11): time & distance of closest approach under constant
-  relative velocity — distinguishes "1.5 m away moving toward me" from "moving away".
-- **Trajectory generation** (§16) and **collision** (§17-18).
-- **Trajectory scorer** (§19) and **behavior modes** (§20/§23).
+## Core math (`social_nav_core`)
 
-Keeping this ROS-free means it is covered by fast GoogleTest unit tests (§35, 68 tests) in
-isolation from the middleware.
+Kept free of ROS dependencies so it can be unit-tested in isolation:
 
-## Safety hierarchy (§48)
+- Anisotropic personal-space cost: a Gaussian in the person's heading frame, larger in
+  front than to the side than behind.
+- Closest approach / time-to-collision under constant relative velocity, so "1.5 m away
+  and approaching" is treated differently from "1.5 m away and leaving".
+- Trajectory rollout, collision checking, weighted scoring, and behaviour-mode selection.
 
-1. Physical collision avoidance (hard reject against the costmap)
-2. Dynamic collision prediction (TTC)
-3. Human comfort (social cost)
-4. Path efficiency
-5. Goal efficiency
+## Safety ordering
 
-A lower-priority objective never overrides a higher one: unsafe trajectories are rejected
-before scoring, so social preference can never trade away collision safety.
-
-## Related docs
-- [`../MASTER_PROMPT.md`](../MASTER_PROMPT.md) — the binding spec
-- [`TUNING.md`](TUNING.md) — every parameter explained
-- [`BENCHMARKING.md`](BENCHMARKING.md) — how to run the evaluation
-- [`troubleshooting.md`](troubleshooting.md) — common issues
-- [`../IMPLEMENTATION_STATUS.md`](../IMPLEMENTATION_STATUS.md) — honest phase/DoD state
+Collision avoidance and dynamic-collision prediction come before human comfort, which comes
+before path/goal efficiency. Unsafe trajectories are rejected before scoring, so social
+preference can never trade away a collision.

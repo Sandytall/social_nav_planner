@@ -8,7 +8,7 @@ namespace social_nav_prediction
 int predictionStepCount(const PredictionParams & params)
 {
   if (params.dt <= 0.0 || params.horizon <= 0.0) {
-    return 0;  // §54: invalid config -> no prediction, caller falls back safely.
+    return 0;  // invalid config -> no prediction, caller falls back safely.
   }
   // Number of whole dt steps that fit in the horizon. The small epsilon keeps a horizon
   // that is an exact multiple of dt (e.g. 3.0 / 0.1) from losing its last step to
@@ -77,7 +77,7 @@ PredictedPath UncertaintyAwarePredictor::predict(
   const Eigen::Vector2d v = state.velocity;
   const double sigma0 = params.initial_position_stddev;
   const double rate = params.uncertainty_growth_rate;
-  // CV mean, but 1-sigma uncertainty grows linearly with the horizon (§8): the planner
+  // CV mean, but 1-sigma uncertainty grows linearly with the horizon: the planner
   // treats farther-future predictions as less trustworthy and behaves more cautiously.
   return buildPath(
     params,

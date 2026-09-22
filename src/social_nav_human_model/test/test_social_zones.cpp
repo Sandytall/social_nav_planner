@@ -34,7 +34,7 @@ TEST(SocialZones, NestedBandsInFront)
   EXPECT_EQ(classifyZone(h, heading, Vector2d(3.0, 0.0), params()), SocialZone::kNone);
 }
 
-// §9 anisotropy: the same distance is "more intrusive" in front than behind, because the
+// Anisotropy: the same distance is "more intrusive" in front than behind, because the
 // front radii are larger. 1.4 m ahead is still inside the caution ellipse; 1.4 m behind
 // is outside every zone.
 TEST(SocialZones, FrontReachesFartherThanRear)

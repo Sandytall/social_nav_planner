@@ -1,4 +1,4 @@
-"""Publish the SocialNav robot description + TF (MASTER_PROMPT §27)."""
+"""Publish the SocialNav robot description + TF."""
 import os
 
 from ament_index_python.packages import get_package_share_directory

@@ -1,5 +1,5 @@
-"""Visualize /social_nav/humans as RViz markers (MASTER_PROMPT §31): a body cylinder, a
-heading/velocity arrow, and anisotropic comfort/caution social-zone outlines."""
+"""Visualize /social_nav/humans as RViz markers: a body cylinder, a heading/velocity
+arrow, and anisotropic comfort/caution social-zone outlines."""
 import math
 
 import rclpy

@@ -1,6 +1,6 @@
-// Relative-motion reasoning: time/distance to closest approach (MASTER_PROMPT §11, §12).
+// Relative-motion reasoning: time/distance to closest approach.
 //
-// These functions implement the core insight of §11: a human 1.5 m away moving AWAY is
+// These functions implement the core insight: a human 1.5 m away moving AWAY is
 // not the same as one 1.5 m away moving TOWARD the robot. We reason about the constant-
 // velocity relative motion, not raw Euclidean distance.
 #ifndef SOCIAL_NAV_CORE__KINEMATICS_HPP_

@@ -1,8 +1,8 @@
-// Candidate trajectory generation by velocity sampling (MASTER_PROMPT §16).
+// Candidate trajectory generation by velocity sampling.
 //
 // For a differential-drive robot we sample (v, omega) pairs within the robot's limits and
 // forward-simulate a unicycle model to produce candidate trajectories. The planner then
-// checks each for collisions (§17-18) and scores the survivors (§19).
+// checks each for collisions and scores the survivors.
 #ifndef SOCIAL_NAV_CORE__TRAJECTORY_GENERATOR_HPP_
 #define SOCIAL_NAV_CORE__TRAJECTORY_GENERATOR_HPP_
 
@@ -13,7 +13,7 @@
 namespace social_nav_core
 {
 
-/// Differential-drive velocity/acceleration limits (§18 hard constraints, §26 params).
+/// Differential-drive velocity/acceleration limits (hard constraints).
 struct DiffDriveLimits
 {
   double max_v{0.8};
@@ -23,7 +23,7 @@ struct DiffDriveLimits
   double max_alpha{1.0};   ///< angular, rad/s^2
 };
 
-/// Sampling resolution and roll-out horizon (§16).
+/// Sampling resolution and roll-out horizon.
 struct SamplingParams
 {
   int v_samples{7};
@@ -36,7 +36,7 @@ struct SamplingParams
 ///
 /// Velocity samples are limited both by the absolute limits and by what is reachable
 /// from `current_vel` within one control period (`dt_reachable`), so acceleration limits
-/// are respected (§18). Pass dt_reachable <= 0 to ignore reachability (sample full range).
+/// are respected. Pass dt_reachable <= 0 to ignore reachability (sample full range).
 std::vector<Trajectory> generateTrajectories(
   const Pose2D & start,
   const Velocity2D & current_vel,

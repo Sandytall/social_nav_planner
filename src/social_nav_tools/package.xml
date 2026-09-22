@@ -4,8 +4,8 @@
   <name>social_nav_tools</name>
   <version>0.1.0</version>
   <description>
-    Tooling for the SocialNav Planner (MASTER_PROMPT §6): a simulated human publisher so
-    the controller has people to reason about without a real detector.
+    Tooling for the SocialNav Planner: a simulated human publisher so the controller
+    has people to reason about without a real detector.
   </description>
   <maintainer email="sandeep@origin.tech">Sandeep</maintainer>
   <license>Apache-2.0</license>

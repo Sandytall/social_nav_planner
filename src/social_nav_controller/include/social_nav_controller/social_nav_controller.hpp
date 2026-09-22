@@ -1,9 +1,9 @@
-// SocialNav Nav2 controller plugin (MASTER_PROMPT §16-§25).
+// SocialNav Nav2 controller plugin.
 //
-// Samples candidate (v, omega) trajectories, HARD-rejects unsafe ones against the costmap
-// (§17-18), scores the survivors with the social cost model (§19), applies behavior-mode
-// speed scaling (§20), and commands the best. Falls back to plain path-following when no
-// humans are present (§21: "behave like a normal local planner").
+// Samples candidate (v, omega) trajectories, HARD-rejects unsafe ones against the costmap,
+// scores the survivors with the social cost model, applies behavior-mode speed scaling, and
+// commands the best. Falls back to plain path-following when no humans are present (behaves
+// like a normal local planner).
 #ifndef SOCIAL_NAV_CONTROLLER__SOCIAL_NAV_CONTROLLER_HPP_
 #define SOCIAL_NAV_CONTROLLER__SOCIAL_NAV_CONTROLLER_HPP_
 
@@ -73,13 +73,13 @@ private:
   std::mutex humans_mutex_;
   social_nav_msgs::msg::HumanArray latest_humans_;
 
-  // Parameters (§26).
+  // Parameters.
   double controller_frequency_{20.0};
   double max_linear_vel_{0.8};
   double max_angular_vel_{1.2};
   double lookahead_dist_{1.5};        ///< distance ahead on the plan for the local goal
   double transform_tolerance_{0.2};
-  double human_timeout_{1.0};         ///< drop human data older than this (§54)
+  double human_timeout_{1.0};         ///< drop human data older than this
   double robot_radius_{0.30};
   double goal_dist_tolerance_{0.25};
   // Pure-pursuit base + social perturbation (hybrid) params.
@@ -109,17 +109,17 @@ private:
   std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>>
     global_path_pub_;
 
-  // Debug (§32): the locally chosen trajectory + current behavior mode.
+  // Debug: the locally chosen trajectory + current behavior mode.
   bool debug_mode_{true};
   std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>> sel_traj_pub_;
   std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::String>> mode_pub_;
-  // Failure-state reporting (§34): OK / EMPTY_PLAN / NO_VALID_TRAJECTORY /
+  // Failure-state reporting: OK / EMPTY_PLAN / NO_VALID_TRAJECTORY /
   // STALE_HUMAN_DATA / EMERGENCY_STOP, published on /social_nav/debug/status.
   std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::String>> status_pub_;
   bool last_humans_stale_{false};
   void publishStatus(const char * status);
 
-  // Performance metrics (§30): rolling window of computeVelocityCommands latencies.
+  // Performance metrics: rolling window of computeVelocityCommands latencies.
   std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<social_nav_msgs::msg::PlannerMetrics>>
     metrics_pub_;
   std::deque<double> compute_ms_;
@@ -132,23 +132,12 @@ private:
 
   double effectiveMaxSpeed() const;
 
-  /// Pruned plan points (world frame) from nearest-to-robot forward, and the local goal.
-  void prunePlan(
-    const social_nav_core::Pose2D & robot,
-    std::vector<Eigen::Vector2d> & path_out,
-    Eigen::Vector2d & goal_out) const;
-
-  /// Lethal/inscribed costmap cells as world points within `radius` of the robot, for the
-  /// scorer's SOFT obstacle-proximity term (§19). Not used for hard rejection.
-  std::vector<Eigen::Vector2d> extractObstacles(
-    const social_nav_core::Pose2D & robot, double radius) const;
-
-  /// Hard collision test against the costmap directly (§17-18): a trajectory collides if
+  /// Hard collision test against the costmap directly: a trajectory collides if
   /// any point lands on an inscribed/lethal cell or leaves the costmap. The costmap's
   /// inflation already accounts for the robot radius, so we must NOT inflate again.
   bool trajectoryCollides(const social_nav_core::Trajectory & traj) const;
 
-  /// Snapshot the freshest non-stale humans as scorer inputs (§54 staleness).
+  /// Snapshot the freshest non-stale humans as scorer inputs.
   std::vector<social_nav_core::ScoredHuman> currentHumans();
 };
 

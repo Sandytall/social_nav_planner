@@ -14,7 +14,7 @@ setup(
     zip_safe=True,
     maintainer="Sandeep",
     maintainer_email="sandeep@origin.tech",
-    description="SocialNav tooling: simulated human publisher (MASTER_PROMPT §6).",
+    description="SocialNav tooling: simulated human publisher and RViz markers.",
     license="Apache-2.0",
     entry_points={
         "console_scripts": [

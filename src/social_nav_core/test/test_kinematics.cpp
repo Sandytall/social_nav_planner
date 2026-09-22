@@ -7,7 +7,7 @@
 using social_nav_core::computeClosestApproach;
 using Eigen::Vector2d;
 
-// §11: a head-on approach must be detected as an imminent, near-zero-distance event.
+// A head-on approach must be detected as an imminent, near-zero-distance event.
 TEST(ClosestApproach, HeadOnCollisionCourse)
 {
   // Human 5 m ahead at (5,0); relative velocity closing at 2 m/s along -x.
@@ -17,7 +17,7 @@ TEST(ClosestApproach, HeadOnCollisionCourse)
   EXPECT_NEAR(ca.distance, 0.0, 1e-6);   // paths intersect
 }
 
-// §11: same Euclidean distance, but moving AWAY -> not approaching, distance stays.
+// Same Euclidean distance, but moving AWAY -> not approaching, distance stays.
 TEST(ClosestApproach, SeparatingAgentsAreNotApproaching)
 {
   const auto ca = computeClosestApproach(Vector2d(5.0, 0.0), Vector2d(2.0, 0.0));
@@ -36,7 +36,7 @@ TEST(ClosestApproach, GlancingPassKeepsLateralOffset)
   EXPECT_NEAR(ca.distance, 1.0, 1e-6);
 }
 
-// §54 robustness: zero relative motion must not divide by zero.
+// Robustness: zero relative motion must not divide by zero.
 TEST(ClosestApproach, ZeroRelativeVelocityReturnsCurrentDistance)
 {
   const auto ca = computeClosestApproach(Vector2d(3.0, 4.0), Vector2d(0.0, 0.0));

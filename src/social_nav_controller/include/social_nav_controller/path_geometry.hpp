@@ -1,9 +1,8 @@
-// Pure, ROS-free path-following geometry for the SocialNav controller (MASTER_PROMPT §25).
+// Pure, ROS-free path-following geometry for the SocialNav controller.
 //
-// Phase 2 uses a regulated-pure-pursuit style command so the robot follows the global
-// plan (DoD: "Robot navigates without humans"). Later phases (§16-§19) replace the raw
-// command with sampled candidate trajectories scored by the social cost model; this
-// geometry remains useful as the goal/path-following term.
+// A regulated-pure-pursuit style command keeps the robot following the global plan. The
+// full planner replaces the raw command with sampled candidate trajectories scored by the
+// social cost model; this geometry remains useful as the goal/path-following term.
 #ifndef SOCIAL_NAV_CONTROLLER__PATH_GEOMETRY_HPP_
 #define SOCIAL_NAV_CONTROLLER__PATH_GEOMETRY_HPP_
 
@@ -39,7 +38,7 @@ Carrot findLookaheadPoint(
 double purePursuitCurvature(const Eigen::Vector2d & carrot);
 
 /// Regulate linear speed on tight curvature: speed is scaled down as |curvature| grows
-/// past `curvature_threshold`, never below `min_speed` (§20 CAUTIOUS-style slowing).
+/// past `curvature_threshold`, never below `min_speed` (CAUTIOUS-style slowing).
 double regulateLinearSpeed(
   double desired_speed, double curvature, double curvature_threshold, double min_speed);
 

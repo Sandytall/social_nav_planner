@@ -1,6 +1,6 @@
-// Proves the controller is a real, pluginlib-loadable nav2_core::Controller (§25, §36:
-// "plugin loads"). This instantiates the class through the same ClassLoader Nav2's
-// controller server uses - not a mock.
+// Proves the controller is a real, pluginlib-loadable nav2_core::Controller. This
+// instantiates the class through the same ClassLoader Nav2's controller server uses -
+// not a mock.
 #include <gtest/gtest.h>
 
 #include <pluginlib/class_loader.hpp>

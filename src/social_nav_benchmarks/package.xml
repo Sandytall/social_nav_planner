@@ -4,8 +4,8 @@
   <name>social_nav_benchmarks</name>
   <version>0.1.0</version>
   <description>
-    Automated benchmarking framework for the SocialNav Planner (MASTER_PROMPT §29, §38,
-    §39): runs deterministic scenarios headless, records metrics, writes JSON/CSV/report.
+    Automated benchmarking framework for the SocialNav Planner: runs deterministic
+    scenarios headless, records metrics, writes JSON/CSV/report.
   </description>
   <maintainer email="kaustubh@origin.tech">Sandeep</maintainer>
   <license>Apache-2.0</license>

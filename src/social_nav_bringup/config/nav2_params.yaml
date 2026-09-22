@@ -1,6 +1,6 @@
-# Nav2 parameters for the SocialNav Planner (MASTER_PROMPT §26, adapted to ROS 2 Humble).
+# Nav2 parameters for the SocialNav Planner (adapted to ROS 2 Humble).
 # Mapless: global costmap uses a rolling window so no map file / AMCL is needed for the
-# demo. The controller is our SocialNavController wired as the FollowPath plugin (§25).
+# demo. The controller is our SocialNavController wired as the FollowPath plugin.
 
 controller_server:
   ros__parameters:
@@ -28,7 +28,7 @@ controller_server:
       # position-only goal checking.
       yaw_goal_tolerance: 3.15
 
-    # ===== SocialNav controller (hybrid: pure-pursuit base + social perturbation) =====
+    # SocialNav controller (hybrid: pure-pursuit base + social perturbation).
     # Path following is done by a reliable pure-pursuit base command; the social weights
     # only choose among candidate commands sampled AROUND it. See docs/TUNING.md.
     FollowPath:
@@ -64,16 +64,16 @@ controller_server:
                                      # hugs the plan (may stop for people); LOWER => detours more freely.
                                      # NOTE: going fully AROUND a person standing ON the path needs the
                                      # SocialLayer costmap (phase D); until then the robot slows/stops
-                                     # and keeps clearance for a blocker (§21/§24) and passes people
+                                     # and keeps clearance for a blocker and passes people
                                      # who are beside the path.
 
-      # --- BEHAVIOR MODES (§20) ---
+      # --- BEHAVIOR MODES ---
       cautious_clearance: 2.0        # nearest person < this => CAUTIOUS (0.6x speed)
       crowded_clearance: 1.2         # nearest person < this => CROWDED (0.4x speed)
       emergency_clearance: 0.45      # nearest person < this => EMERGENCY (stop)
       emergency_ttc: 1.0             # time-to-collision < this => EMERGENCY (stop)
       crowded_num_humans: 4          # this many+ people => CROWDED
-      mode_hysteresis: 0.25          # de-escalation margin so the mode does not flicker (§23)
+      mode_hysteresis: 0.25          # de-escalation margin so the mode does not flicker
 
       # --- SOCIAL COST WEIGHTS (only these three are used by the hybrid) ---
       weights:
@@ -130,7 +130,7 @@ global_costmap:
       robot_radius: 0.45
       track_unknown_space: false
       # social_layer LAST so it stamps human cost on top; it makes the global planner
-      # route AROUND people (§15). Soft cost (< lethal) so passable gaps stay passable.
+      # route AROUND people. Soft cost (< lethal) so passable gaps stay passable.
       plugins: ["obstacle_layer", "inflation_layer", "social_layer"]
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"

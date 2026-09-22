@@ -1,4 +1,4 @@
-// Small angle helpers (MASTER_PROMPT §51: clear interfaces, minimal state).
+// Small angle helpers.
 #ifndef SOCIAL_NAV_CORE__ANGLES_HPP_
 #define SOCIAL_NAV_CORE__ANGLES_HPP_
 

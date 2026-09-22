@@ -1,4 +1,4 @@
-"""Bring up Nav2 with the SocialNav controller (MASTER_PROMPT §25, §41).
+"""Bring up Nav2 with the SocialNav controller.
 
 Mapless: a static map->odom identity transform stands in for localization, and the
 global costmap uses a rolling window, so no map file / AMCL is required for the demo.

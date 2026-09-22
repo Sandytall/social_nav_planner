@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
-<!-- SocialNav test environment (MASTER_PROMPT §27): a bounded area with an internal
-     wall forming a corridor and a couple of obstacles (tables). Gazebo Classic SDF. -->
+<!-- SocialNav test environment: a bounded area with an internal wall forming a corridor
+     and a couple of obstacles (tables). Gazebo Classic SDF. -->
 <sdf version="1.6">
   <world name="social_world">
 
@@ -40,7 +40,7 @@
       </link>
 
       <!-- Internal wall creating a ~2.0 m corridor gap (y in [0.0, 2.0]) sized for the
-           MiR-100 (~0.9 x 0.58 m); still exercises §22 corridor behavior. -->
+           MiR-100 (~0.9 x 0.58 m); still exercises corridor behavior. -->
       <link name="divider_lower">
         <pose>0 -2.5 0.5 0 0 0</pose>
         <collision name="c"><geometry><box><size>0.1 5.0 1</size></box></geometry></collision>
@@ -53,7 +53,7 @@
       </link>
     </model>
 
-    <!-- A table obstacle (§14 static obstacle handling). -->
+    <!-- A table obstacle (static obstacle handling). -->
     <model name="table">
       <static>true</static>
       <link name="link">

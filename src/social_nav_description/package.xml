@@ -4,7 +4,7 @@
   <name>social_nav_description</name>
   <version>0.1.0</version>
   <description>
-    Differential-drive robot description (URDF/xacro) for the SocialNav Planner (§27).
+    Differential-drive robot description (URDF/xacro) for the SocialNav Planner.
   </description>
   <maintainer email="sandeep@origin.tech">Sandeep</maintainer>
   <license>Apache-2.0</license>

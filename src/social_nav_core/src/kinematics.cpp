@@ -25,7 +25,7 @@ ClosestApproach computeClosestApproach(
   result.time = t_star;
   result.approaching = t_star > 0.0;
 
-  // Future minimum separation: clamp the evaluation time to t >= 0 (§11 cares about
+  // Future minimum separation: clamp the evaluation time to t >= 0 (we care about
   // what is about to happen, not what already happened).
   const double t_eval = t_star > 0.0 ? t_star : 0.0;
   result.distance = (rel_position + rel_velocity * t_eval).norm();

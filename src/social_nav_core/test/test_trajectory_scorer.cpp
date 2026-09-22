@@ -41,7 +41,7 @@ TEST(Scorer, SelectBestPicksLowestTotalAndFillsBreakdowns)
   EXPECT_GT(br[0].total, br[1].total);
 }
 
-// §10/§19: a trajectory that drives into a human's social zone costs more (human term)
+// A trajectory that drives into a human's social zone costs more (human term)
 // than one that keeps clearance.
 TEST(Scorer, HumanZoneRaisesHumanCost)
 {
@@ -61,7 +61,7 @@ TEST(Scorer, HumanZoneRaisesHumanCost)
   EXPECT_GT(c_near, c_far);
 }
 
-// §11: a human on a collision course adds TTC cost; the same human moving away does not.
+// A human on a collision course adds TTC cost; the same human moving away does not.
 TEST(Scorer, ApproachingHumanRaisesTtcCost)
 {
   ScoringContext ctx;
@@ -82,7 +82,7 @@ TEST(Scorer, ApproachingHumanRaisesTtcCost)
   EXPECT_NEAR(ttc_away, 0.0, 1e-9);
 }
 
-// §13: driving through a group is penalised.
+// Driving through a group is penalised.
 TEST(Scorer, GroupIntrusionPenalised)
 {
   ScoringContext ctx;

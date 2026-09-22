@@ -57,7 +57,7 @@ std::vector<Group> detectGroups(
   int group_id = 0;
   for (const auto & members : components) {
     if (members.size() < 2) {
-      continue;  // lone humans are not groups (§13)
+      continue;  // lone humans are not groups
     }
     Group g;
     g.id = group_id++;

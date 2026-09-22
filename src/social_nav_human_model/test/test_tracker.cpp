@@ -37,7 +37,7 @@ TEST(Tracker, KeepsStableIdAndEstimatesVelocity)
   EXPECT_NEAR(t2[0].velocity.x(), 1.0, 0.2);  // EMA converges toward 1 m/s
 }
 
-// §7 / §21: one missing frame must NOT delete the track.
+// One missing frame must NOT delete the track.
 TEST(Tracker, SingleMissedDetectionDoesNotDeleteTrack)
 {
   TrackerParams p;
@@ -92,7 +92,7 @@ TEST(Tracker, TrackingAgeGrows)
   EXPECT_NEAR(tracks[0].tracking_age, 1.0, 1e-9);  // created at t=1.0, now t=2.0
 }
 
-TEST(Tracker, TwoCrossingHumansKeepSeparateIds)  // §21
+TEST(Tracker, TwoCrossingHumansKeepSeparateIds)
 {
   TrackerParams p;
   p.max_association_distance = 0.6;

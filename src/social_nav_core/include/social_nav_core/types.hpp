@@ -1,6 +1,6 @@
-// Core value types shared across the SocialNav planner (MASTER_PROMPT §4, §16).
+// Core value types shared across the SocialNav planner.
 // Header-only, dependency-light: no ROS or Nav2 types leak into the core math so the
-// math can be unit-tested in isolation (§35).
+// math can be unit-tested in isolation.
 #ifndef SOCIAL_NAV_CORE__TYPES_HPP_
 #define SOCIAL_NAV_CORE__TYPES_HPP_
 
@@ -18,7 +18,7 @@ struct Pose2D
   double theta{0.0};
 };
 
-/// A planar velocity. vy is only meaningful for holonomic robots (§16); for
+/// A planar velocity. vy is only meaningful for holonomic robots; for
 /// differential drive it stays 0 and only vx/omega are sampled.
 struct Velocity2D
 {
@@ -27,7 +27,7 @@ struct Velocity2D
   double omega{0.0};
 };
 
-/// One sample along a simulated candidate trajectory (§16).
+/// One sample along a simulated candidate trajectory.
 struct TrajectoryPoint
 {
   Pose2D pose;
@@ -35,7 +35,7 @@ struct TrajectoryPoint
   double time{0.0};  ///< Seconds from the start of the trajectory.
 };
 
-/// A forward-simulated candidate trajectory (§16, §17).
+/// A forward-simulated candidate trajectory.
 struct Trajectory
 {
   std::vector<TrajectoryPoint> points;

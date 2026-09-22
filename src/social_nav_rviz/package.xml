@@ -3,7 +3,7 @@
 <package format="3">
   <name>social_nav_rviz</name>
   <version>0.1.0</version>
-  <description>RViz configuration for the SocialNav Planner (MASTER_PROMPT §31).</description>
+  <description>RViz configuration for the SocialNav Planner.</description>
   <maintainer email="kaustubh@origin.tech">Sandeep</maintainer>
   <license>Apache-2.0</license>
 

@@ -1,10 +1,10 @@
-// Basic multi-human tracker (MASTER_PROMPT §7).
+// Basic multi-human tracker.
 //
 // Nearest-neighbour association, track creation/timeout, EMA velocity & acceleration
-// estimation, stationary classification. Deliberately simple and deterministic (§49) so
+// estimation, stationary classification. Deliberately simple and deterministic so
 // it is suitable for simulation and development; a Kalman variant is an optional upgrade.
 //
-// Hard rule from §7 / §21: a single missed detection must NEVER delete a track. Tracks
+// Hard rule: a single missed detection must NEVER delete a track. Tracks
 // are only removed after `track_timeout` seconds without a matching detection.
 #ifndef SOCIAL_NAV_HUMAN_MODEL__TRACKER_HPP_
 #define SOCIAL_NAV_HUMAN_MODEL__TRACKER_HPP_
@@ -17,7 +17,7 @@
 namespace social_nav_human_model
 {
 
-/// A raw detection fed to the tracker (detector-agnostic, §6).
+/// A raw detection fed to the tracker (detector-agnostic).
 struct Detection
 {
   Eigen::Vector2d position{0.0, 0.0};
@@ -38,7 +38,7 @@ struct Track
   bool has_velocity{false};        ///< false until a second observation exists
 };
 
-/// Configurable tracker knobs (§7). None are hard-coded behavioural thresholds (§1).
+/// Configurable tracker knobs. None are hard-coded behavioural thresholds.
 struct TrackerParams
 {
   double track_timeout{1.0};             ///< remove a track after this many seconds unseen

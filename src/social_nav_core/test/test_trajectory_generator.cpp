@@ -58,7 +58,7 @@ TEST(Generate, ProducesSampleGridWithinLimits)
   }
 }
 
-TEST(Generate, ReachabilityLimitsSampleWindow)  // §18 acceleration limits
+TEST(Generate, ReachabilityLimitsSampleWindow)  // acceleration limits
 {
   DiffDriveLimits limits;
   limits.max_v = 1.0;

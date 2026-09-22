@@ -1,5 +1,5 @@
-"""Headless system test (MASTER_PROMPT §37): send a NavigateToPose goal and verify the
-robot autonomously reaches it. Exits non-zero on failure (safety/arrival criteria)."""
+"""Headless system test: send a NavigateToPose goal and verify the robot autonomously
+reaches it. Exits non-zero on failure (safety/arrival criteria)."""
 import math
 import time
 

@@ -1,7 +1,7 @@
-"""Bring up Gazebo Classic with the SocialNav world and spawn the robot (§27).
+"""Bring up Gazebo Classic with the SocialNav world and spawn the robot.
 
 Headless-capable: pass gui:=false to run gzserver only (used by the smoke test and CI,
-§57 - CI must not need a display).
+which must not need a display).
 """
 import os
 

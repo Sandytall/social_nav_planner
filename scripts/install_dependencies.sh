@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Install system dependencies for the SocialNav workspace on Ubuntu 22.04 + ROS 2 Humble
-# (MASTER_PROMPT §42). Requires sudo.
+# Install system dependencies for the SocialNav workspace on Ubuntu 22.04 + ROS 2 Humble.
+# Requires sudo.
 set -euo pipefail
 
 sudo apt update

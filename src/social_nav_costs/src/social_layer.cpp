@@ -71,7 +71,7 @@ std::vector<SocialLayer::Person> SocialLayer::currentPeople()
   if (node) {
     const double age =
       node->now().seconds() - rclcpp::Time(snap.header.stamp).seconds();
-    if (age > human_timeout_) {  // §54: ignore stale data
+    if (age > human_timeout_) {  // ignore stale data
       return out;
     }
   }
@@ -81,7 +81,7 @@ std::vector<SocialLayer::Person> SocialLayer::currentPeople()
         1.0 - 2.0 * (q.y * q.y + q.z * q.z));
     const double x = h.pose.position.x;
     const double y = h.pose.position.y;
-    if (std::isfinite(x) && std::isfinite(y)) {  // §54
+    if (std::isfinite(x) && std::isfinite(y)) {
       out.push_back({x, y, yaw});
     }
   }

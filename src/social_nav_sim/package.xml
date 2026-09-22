@@ -4,7 +4,7 @@
   <name>social_nav_sim</name>
   <version>0.1.0</version>
   <description>
-    Gazebo Classic simulation (worlds + spawn) for the SocialNav Planner (MASTER_PROMPT §27).
+    Gazebo Classic simulation (worlds + spawn) for the SocialNav Planner.
   </description>
   <maintainer email="sandeep@origin.tech">Sandeep</maintainer>
   <license>Apache-2.0</license>

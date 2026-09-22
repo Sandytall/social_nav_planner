@@ -1,4 +1,4 @@
-"""Compute per-run benchmark metrics (MASTER_PROMPT §29) from recorded time series."""
+"""Compute per-run benchmark metrics from recorded time series."""
 import math
 
 COLLISION_DIST = 0.5     # robot centre this close to a person = collision
@@ -72,7 +72,7 @@ def compute(record, goal, arrival_radius=0.6):
         out["collision"] = False
         out["social_intrusion_ratio"] = 0.0
 
-    # Planner compute latency (§30), taken from the last PlannerMetrics.
+    # Planner compute latency, taken from the last PlannerMetrics.
     pm = record.get("planner")
     if pm:
         out["compute_p50_ms"] = round(pm.get("p50_ms", 0.0), 2)

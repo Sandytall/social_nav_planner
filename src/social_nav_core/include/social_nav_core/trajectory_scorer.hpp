@@ -1,7 +1,7 @@
-// Social trajectory scoring (MASTER_PROMPT §19) and behavior modes (§20, §23).
+// Social trajectory scoring and behavior modes.
 //
-// After unsafe candidates are hard-rejected (§17-18), the survivors are scored by a
-// weighted sum of independently-measurable cost terms (§1, §19). Safety is NOT in this
+// After unsafe candidates are hard-rejected, the survivors are scored by a
+// weighted sum of independently-measurable cost terms. Safety is NOT in this
 // sum - it is a prior hard constraint. Lower total score is better.
 //
 //   J = w_goal*Goal + w_path*Path + w_obs*Obstacle + w_human*HumanClearance
@@ -29,14 +29,14 @@ struct ScoredHuman
   SocialZoneParams zone{};
 };
 
-/// A group to avoid intruding into (§13).
+/// A group to avoid intruding into.
 struct ScoredGroup
 {
   Eigen::Vector2d centroid{0.0, 0.0};
   double radius{0.0};
 };
 
-/// Per-term cost weights (§1, §26). All configurable; no hard-coded behaviour.
+/// Per-term cost weights. All configurable; no hard-coded behaviour.
 struct CostWeights
 {
   double goal{1.0};
@@ -51,7 +51,7 @@ struct CostWeights
   double progress{2.0};
 };
 
-/// The individual cost terms for one trajectory (§19: each independently measurable).
+/// The individual cost terms for one trajectory (each independently measurable).
 struct CostBreakdown
 {
   double goal{0.0};
@@ -82,20 +82,20 @@ struct ScoringContext
 };
 
 /// Score one trajectory. Returns the weighted breakdown (does NOT check safety - the
-/// caller rejects unsafe trajectories first, §18).
+/// caller rejects unsafe trajectories first).
 CostBreakdown scoreTrajectory(
   const Trajectory & traj, const ScoringContext & ctx, const CostWeights & weights);
 
 /// Index of the lowest-total-cost trajectory among `trajectories`, or -1 if the input is
 /// empty. `breakdowns` (if non-null) is filled with each trajectory's breakdown, for the
-/// debug output required by §19/§32.
+/// debug output.
 int selectBestTrajectory(
   const std::vector<Trajectory> & trajectories,
   const ScoringContext & ctx,
   const CostWeights & weights,
   std::vector<CostBreakdown> * breakdowns = nullptr);
 
-// ===== Behavior modes (§20) with hysteresis (§23) =====
+// Behavior modes with hysteresis.
 
 enum class BehaviorMode
 {
@@ -107,7 +107,7 @@ enum class BehaviorMode
 
 const char * toString(BehaviorMode mode);
 
-/// Inputs that drive mode selection (§20).
+/// Inputs that drive mode selection.
 struct ModeInputs
 {
   int num_humans{0};
@@ -116,7 +116,7 @@ struct ModeInputs
 };
 
 /// Thresholds for mode selection. Hysteresis is applied via separate enter/exit bands so
-/// the mode does not oscillate (§20, §23).
+/// the mode does not oscillate.
 struct ModeThresholds
 {
   int crowded_num_humans{4};
@@ -132,7 +132,7 @@ struct ModeThresholds
 BehaviorMode nextMode(
   BehaviorMode current, const ModeInputs & in, const ModeThresholds & th);
 
-/// Speed scale in [0, 1] for a mode (EMERGENCY = 0 => stop). §20.
+/// Speed scale in [0, 1] for a mode (EMERGENCY = 0 => stop).
 double modeSpeedScale(BehaviorMode mode);
 
 }  // namespace social_nav_core

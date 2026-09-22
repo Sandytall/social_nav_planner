@@ -1,4 +1,4 @@
-// Human group detection (MASTER_PROMPT §13).
+// Human group detection.
 //
 // Humans that are close together AND moving similarly form a group. The planner should
 // prefer to go around a group rather than drive through its middle, so we expose the
@@ -26,7 +26,7 @@ struct HumanForGrouping
 
 struct GroupingParams
 {
-  double group_radius{1.5};        ///< max member spacing to link, metres (§15 group_radius)
+  double group_radius{1.5};        ///< max member spacing to link, metres
   double velocity_similarity{0.5}; ///< max velocity difference to link, m/s
 };
 
@@ -40,7 +40,7 @@ struct Group
 };
 
 /// Detect groups among the given humans. Only clusters of >= 2 members are returned;
-/// lone humans are not groups (§13).
+/// lone humans are not groups.
 std::vector<Group> detectGroups(
   const std::vector<HumanForGrouping> & humans, const GroupingParams & params);
 

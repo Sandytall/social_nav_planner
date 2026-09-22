@@ -8,7 +8,6 @@
 #include "nav2_util/node_utils.hpp"
 #include "pluginlib/class_list_macros.hpp"
 
-#include "social_nav_core/collision.hpp"
 #include "social_nav_core/kinematics.hpp"
 #include "social_nav_controller/path_geometry.hpp"
 
@@ -268,70 +267,6 @@ double SocialNavController::effectiveMaxSpeed() const
   return std::clamp(limit, 0.0, max_linear_vel_);
 }
 
-void SocialNavController::prunePlan(
-  const social_nav_core::Pose2D & robot,
-  std::vector<Eigen::Vector2d> & path_out,
-  Eigen::Vector2d & goal_out) const
-{
-  path_out.clear();
-  const auto & poses = global_plan_.poses;
-  if (poses.empty()) {
-    goal_out = Eigen::Vector2d(robot.x, robot.y);
-    return;
-  }
-  const Eigen::Vector2d r(robot.x, robot.y);
-  // Nearest plan pose to the robot.
-  std::size_t nearest = 0;
-  double best = std::numeric_limits<double>::infinity();
-  for (std::size_t i = 0; i < poses.size(); ++i) {
-    const double d =
-      (Eigen::Vector2d(poses[i].pose.position.x, poses[i].pose.position.y) - r).norm();
-    if (d < best) {best = d; nearest = i;}
-  }
-  // Walk forward until we exceed the lookahead distance from the robot.
-  for (std::size_t i = nearest; i < poses.size(); ++i) {
-    const Eigen::Vector2d p(poses[i].pose.position.x, poses[i].pose.position.y);
-    path_out.push_back(p);
-    if ((p - r).norm() >= lookahead_dist_) {break;}
-  }
-  goal_out = path_out.empty() ?
-    Eigen::Vector2d(poses.back().pose.position.x, poses.back().pose.position.y) :
-    path_out.back();
-}
-
-std::vector<Eigen::Vector2d> SocialNavController::extractObstacles(
-  const social_nav_core::Pose2D & robot, double radius) const
-{
-  std::vector<Eigen::Vector2d> obs;
-  auto * costmap = costmap_ros_->getCostmap();
-  if (!costmap) {return obs;}
-  std::unique_lock<nav2_costmap_2d::Costmap2D::mutex_t> lock(*costmap->getMutex());
-  const double res = costmap->getResolution();
-  const int cells = static_cast<int>(std::ceil(radius / std::max(res, 1e-3)));
-  unsigned int rmx, rmy;
-  if (!costmap->worldToMap(robot.x, robot.y, rmx, rmy)) {return obs;}
-  const int size_x = static_cast<int>(costmap->getSizeInCellsX());
-  const int size_y = static_cast<int>(costmap->getSizeInCellsY());
-  for (int dy = -cells; dy <= cells; ++dy) {
-    for (int dx = -cells; dx <= cells; ++dx) {
-      const int mx = static_cast<int>(rmx) + dx;
-      const int my = static_cast<int>(rmy) + dy;
-      if (mx < 0 || my < 0 || mx >= size_x || my >= size_y) {continue;}
-      const unsigned char c = costmap->getCost(static_cast<unsigned int>(mx),
-          static_cast<unsigned int>(my));
-      if (c >= nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE &&
-        c != nav2_costmap_2d::NO_INFORMATION)
-      {
-        double wx, wy;
-        costmap->mapToWorld(static_cast<unsigned int>(mx), static_cast<unsigned int>(my),
-          wx, wy);
-        obs.emplace_back(wx, wy);
-      }
-    }
-  }
-  return obs;
-}
-
 bool SocialNavController::trajectoryCollides(const social_nav_core::Trajectory & traj) const
 {
   auto * costmap = costmap_ros_->getCostmap();
@@ -340,7 +275,7 @@ bool SocialNavController::trajectoryCollides(const social_nav_core::Trajectory &
   for (const auto & pt : traj.points) {
     unsigned int mx, my;
     if (!costmap->worldToMap(pt.pose.x, pt.pose.y, mx, my)) {
-      return true;  // left the costmap region (§18)
+      return true;  // left the costmap region
     }
     const unsigned char c = costmap->getCost(mx, my);
     // Inflation already bakes in the robot radius: an inscribed/lethal cell means the
@@ -364,11 +299,11 @@ std::vector<social_nav_core::ScoredHuman> SocialNavController::currentHumans()
     snapshot = latest_humans_;
   }
   if (snapshot.humans.empty()) {return out;}
-  // §54: drop stale human data.
+  // Drop stale human data.
   // Use .seconds() on each side: avoids throwing when clock types differ, and both run on
   // sim time in the demo. (Publishers must stamp on the same clock or they look stale.)
   const double age = node_->now().seconds() - rclcpp::Time(snapshot.header.stamp).seconds();
-  if (age > human_timeout_) {  // §54: drop stale data (a small future offset is tolerated)
+  if (age > human_timeout_) {  // drop stale data (a small future offset is tolerated)
     last_humans_stale_ = true;
     RCLCPP_WARN_THROTTLE(logger_, *node_->get_clock(), 2000,
       "Human data stale (age=%.2fs) - ignoring", age);
@@ -380,7 +315,7 @@ std::vector<social_nav_core::ScoredHuman> SocialNavController::currentHumans()
     sh.velocity = Eigen::Vector2d(h.velocity.linear.x, h.velocity.linear.y);
     sh.heading = yawFromQuaternion(h.pose.orientation);
     sh.zone = human_zone_;
-    if (finite2(sh.position) && finite2(sh.velocity)) {  // §54 reject NaN/Inf
+    if (finite2(sh.position) && finite2(sh.velocity)) {  // reject NaN/Inf
       out.push_back(sh);
     }
   }
@@ -396,7 +331,7 @@ geometry_msgs::msg::TwistStamped SocialNavController::computeVelocityCommands(
   cmd.header.stamp = node_->now();
   cmd.header.frame_id = costmap_ros_->getBaseFrameID();
 
-  // §30: measure planning latency and inter-call period.
+  // Measure planning latency and inter-call period.
   const auto t_start = std::chrono::steady_clock::now();
   const rclcpp::Time call_now = node_->now();
   if (have_last_call_) {
@@ -419,7 +354,7 @@ geometry_msgs::msg::TwistStamped SocialNavController::computeVelocityCommands(
     global_plan_.poses.back().pose.position.x, global_plan_.poses.back().pose.position.y);
   const double dist_to_goal = (final_goal - r).norm();
 
-  // ---- 1. Pure-pursuit base command (reliable path following) ----
+  // 1. Pure-pursuit base command (reliable path following).
   std::vector<Eigen::Vector2d> path_robot;
   path_robot.reserve(global_plan_.poses.size());
   for (const auto & ps : global_plan_.poses) {
@@ -444,7 +379,7 @@ geometry_msgs::msg::TwistStamped SocialNavController::computeVelocityCommands(
     omega_pp = std::clamp(curv * v_pp, -max_angular_vel_, max_angular_vel_);
   }
 
-  // ---- 2. Candidate commands sampled AROUND the pure-pursuit command ----
+  // 2. Candidate commands sampled AROUND the pure-pursuit command.
   std::vector<std::pair<double, double>> candidates;
   const double v_factors[] = {1.0, 0.6, 0.3, 0.0};
   const double w_offsets[] = {0.0, 0.3, -0.3, 0.6, -0.6, 0.9, -0.9, 1.3, -1.3};
@@ -456,8 +391,8 @@ geometry_msgs::msg::TwistStamped SocialNavController::computeVelocityCommands(
     }
   }
 
-  // ---- 3. Social context: only human/TTC/group terms matter here; path-following is the
-  // pure-pursuit base + the deviation cost below (§16-§19 kept, re-weighted for the hybrid).
+  // 3. Social context: only human/TTC/group terms matter here; path-following is the
+  // pure-pursuit base + the deviation cost below, re-weighted for the hybrid.
   social_nav_core::ScoringContext ctx;
   ctx.humans = currentHumans();
   ctx.ttc_horizon = ttc_horizon_;
@@ -467,7 +402,7 @@ geometry_msgs::msg::TwistStamped SocialNavController::computeVelocityCommands(
   sw.velocity = 0.0; sw.smoothness = 0.0; sw.obstacle = 0.0;
   sw.human = weights_.human; sw.ttc = weights_.ttc; sw.group = weights_.group;
 
-  // ---- 4. Pick the safe candidate with the lowest social + deviation cost ----
+  // 4. Pick the safe candidate with the lowest social + deviation cost.
   double best_cost = std::numeric_limits<double>::infinity();
   double v = 0.0, omega = 0.0;
   bool any_safe = false;
@@ -484,12 +419,12 @@ geometry_msgs::msg::TwistStamped SocialNavController::computeVelocityCommands(
   }
   if (!any_safe) {
     RCLCPP_WARN_THROTTLE(logger_, *node_->get_clock(), 1000,
-      "No collision-free trajectory - stopping (NO_VALID_TRAJECTORY, §24/§34)");
+      "No collision-free trajectory - stopping (NO_VALID_TRAJECTORY)");
     publishStatus("NO_VALID_TRAJECTORY");
     return cmd;  // safe stop -> Nav2 recovery engages
   }
 
-  // ---- 5. Behavior mode from the human situation (§20), hysteresis (§23) ----
+  // 5. Behavior mode from the human situation, with hysteresis.
   social_nav_core::ModeInputs mi;
   mi.num_humans = static_cast<int>(ctx.humans.size());
   const Eigen::Vector2d v_robot = velocity.linear.x *
@@ -511,7 +446,7 @@ geometry_msgs::msg::TwistStamped SocialNavController::computeVelocityCommands(
   cmd.twist.linear.x = v;
   cmd.twist.angular.z = omega;
 
-  // Debug topics (§32): the chosen local trajectory + current behavior mode.
+  // Debug topics: the chosen local trajectory + current behavior mode.
   if (debug_mode_) {
     if (sel_traj_pub_ && sel_traj_pub_->is_activated()) {
       nav_msgs::msg::Path path;

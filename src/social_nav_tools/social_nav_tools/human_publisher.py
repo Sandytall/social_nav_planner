@@ -1,14 +1,9 @@
-"""Simulated human publisher (MASTER_PROMPT §6): publishes /social_nav/humans so the
-SocialNav controller has people to reason about, without any real detector.
+"""Simulated human publisher: publishes /social_nav/humans so the controller has people to
+reason about without a real detector. Each human is "x,y,vx,vy" in the map frame (m, m/s);
+stationary if vx=vy=0, otherwise it walks in a straight line. Runs on sim time.
 
-Each human is "x,y,vx,vy" (map frame, m and m/s). Stationary if vx=vy=0; otherwise it
-walks in a straight line (useful for crossing/oncoming scenarios, §28). Publishes on sim
-time so the controller does not treat the data as stale.
-
-Examples:
+Example:
   ros2 run social_nav_tools human_publisher --ros-args -p humans:="['1.5,1.9,0,0']"
-  ros2 run social_nav_tools human_publisher --ros-args \
-      -p humans:="['0.0,0.5,0.0,0.3']" -p loop_period:=8.0
 """
 import math
 
@@ -28,7 +23,7 @@ def yaw_to_quat(yaw: float) -> Quaternion:
 
 class HumanPublisher(Node):
     def __init__(self):
-        # Sim time so stamps match the controller's clock (else it drops us as stale, §54).
+        # Sim time so stamps match the controller's clock (else it drops us as stale).
         super().__init__("human_publisher", parameter_overrides=[
             Parameter("use_sim_time", Parameter.Type.BOOL, True)])
         self.declare_parameter("humans", ["1.5,1.9,0.0,0.0"])
