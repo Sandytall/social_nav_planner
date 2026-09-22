@@ -21,6 +21,7 @@ setup(
             "human_publisher = social_nav_tools.human_publisher:main",
             "human_markers = social_nav_tools.human_markers:main",
             "pedestrian_manager = social_nav_tools.pedestrian_manager:main",
+            "worker_manager = social_nav_tools.worker_manager:main",
         ],
     },
 )

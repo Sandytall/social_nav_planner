@@ -102,6 +102,8 @@ class PedestrianManager(Node):
         self.declare_parameter("spawn_region", [1.0, 12.0, -0.5, 1.4])
         self.declare_parameter("min_separation", 1.0)
         self.declare_parameter("speed", 0.9)
+        self.declare_parameter("group_size", 3)
+        self.declare_parameter("group_spacing", 0.7)
         self.declare_parameter("rate_hz", 15.0)
         self.declare_parameter("frame_id", "map")
         self.declare_parameter("robot_start", [0.0, 0.0])
@@ -128,6 +130,8 @@ class PedestrianManager(Node):
             robot_start=tuple(gp("robot_start").get_parameter_value().double_array_value),
             robot_keepout=gp("robot_keepout").get_parameter_value().double_value,
             speed=gp("speed").get_parameter_value().double_value,
+            group_size=gp("group_size").get_parameter_value().integer_value,
+            group_spacing=gp("group_spacing").get_parameter_value().double_value,
             crossing_x=gp("crossing_x").get_parameter_value().double_value,
         )
         self.people = plan_pedestrians(self.cfg)
@@ -219,7 +223,8 @@ class PedestrianManager(Node):
             h.confidence = 1.0
             h.tracking_age = t
             h.stationary = math.hypot(vx, vy) < 1e-6
-            h.group_id = -1
+            h.group_id = ped.group_id
+            h.group_member = ped.group_id >= 0
             msg.humans.append(h)
             self._move_body(ped, mx + self.map_origin[0], my + self.map_origin[1], myaw)
         self.pub.publish(msg)

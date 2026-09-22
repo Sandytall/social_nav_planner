@@ -1,0 +1,269 @@
+<?xml version="1.0"?>
+<!-- SocialNav factory scene (Gazebo Classic SDF). An indoor production bay with an open
+     production area to the west (the robot starts at the world origin), a main robot lane
+     running east (+x) whose width varies (3.0 m in the west, an occluded ~2.2 m pinch, then
+     2.0 m in the east), and a 1.2 m pedestrian walkway running north-south that INTERSECTS
+     the robot lane. Pallet racks flank both, and a corner rack next to the walkway hides a
+     worker coming down the walkway from the robot approaching along the lane until it is about
+     to step into the lane.
+
+     Authored in the map frame: the factory launch spawns the robot at the world origin so
+     map == odom == world, which lets the worker manager place workers by the same coordinates
+     it publishes on /social_nav/humans.
+
+     Only simple primitives are used (no meshes) for performance. Racks, machines, columns,
+     pallets, walls and guard rails have collisions and are tall enough for the robot's ~0.5 m
+     lidar; floor zone paint (lanes, walkway, restricted/charging pads) is visual-only. -->
+<sdf version="1.6">
+  <world name="factory_world">
+
+    <include><uri>model://sun</uri></include>
+    <include><uri>model://ground_plane</uri></include>
+
+    <!-- Fill light so the racks do not cast the aisles into deep shadow. Uses no online DB. -->
+    <light name="fill" type="directional">
+      <pose>3 0 9 0 0 0</pose>
+      <diffuse>0.5 0.5 0.5 1</diffuse>
+      <specular>0.1 0.1 0.1 1</specular>
+      <direction>-0.2 0.2 -1.0</direction>
+      <cast_shadows>false</cast_shadows>
+    </light>
+
+    <physics type="ode">
+      <max_step_size>0.005</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>200</real_time_update_rate>
+    </physics>
+
+    <!-- Provides /gazebo/set_entity_state so the worker manager can move workers. -->
+    <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
+      <ros><namespace>/gazebo</namespace></ros>
+      <update_rate>50.0</update_rate>
+    </plugin>
+
+    <!-- ================= Floor zone paint (visual only) ================= -->
+
+    <!-- Robot/AMR lane down the middle (y in [-1, 1]). -->
+    <model name="robot_lane">
+      <static>true</static>
+      <link name="link">
+        <visual name="v">
+          <pose>3.5 0 0.005 0 0 0</pose>
+          <geometry><box><size>14 2.0 0.01</size></box></geometry>
+          <material><ambient>0.22 0.26 0.34 1</ambient><diffuse>0.22 0.26 0.34 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Pedestrian walkway (1.2 m wide, north-south) crossing the robot lane at x ~ 4.6. -->
+    <model name="walkway">
+      <static>true</static>
+      <link name="link">
+        <visual name="lane"><pose>4.6 0 0.006 0 0 0</pose>
+          <geometry><box><size>1.2 12.6 0.01</size></box></geometry>
+          <material><ambient>0.80 0.72 0.20 1</ambient><diffuse>0.80 0.72 0.20 1</diffuse></material></visual>
+        <visual name="edge_w"><pose>4.0 0 0.007 0 0 0</pose>
+          <geometry><box><size>0.06 12.6 0.01</size></box></geometry>
+          <material><ambient>0.95 0.90 0.30 1</ambient><diffuse>0.95 0.90 0.30 1</diffuse></material></visual>
+        <visual name="edge_e"><pose>5.2 0 0.007 0 0 0</pose>
+          <geometry><box><size>0.06 12.6 0.01</size></box></geometry>
+          <material><ambient>0.95 0.90 0.30 1</ambient><diffuse>0.95 0.90 0.30 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- Restricted zone floor (NW corner) - static paint only, no planner logic keys off it. -->
+    <model name="restricted_zone">
+      <static>true</static>
+      <link name="link">
+        <visual name="v"><pose>-2.6 4.8 0.004 0 0 0</pose>
+          <geometry><box><size>2.2 2.8 0.01</size></box></geometry>
+          <material><ambient>0.45 0.12 0.12 1</ambient><diffuse>0.45 0.12 0.12 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- Charging area pad (SW corner) - visual only. -->
+    <model name="charging_pad">
+      <static>true</static>
+      <link name="link">
+        <visual name="v"><pose>-3.0 -4.8 0.004 0 0 0</pose>
+          <geometry><box><size>1.6 1.4 0.01</size></box></geometry>
+          <material><ambient>0.12 0.45 0.20 1</ambient><diffuse>0.12 0.45 0.20 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- ================= Perimeter walls (2.5 m tall) ================= -->
+    <model name="walls">
+      <static>true</static>
+      <link name="link">
+        <collision name="n"><pose>3.5 6.5 1.25 0 0 0</pose>
+          <geometry><box><size>15.4 0.2 2.5</size></box></geometry></collision>
+        <visual name="nv"><pose>3.5 6.5 1.25 0 0 0</pose>
+          <geometry><box><size>15.4 0.2 2.5</size></box></geometry>
+          <material><ambient>0.62 0.62 0.66 1</ambient><diffuse>0.62 0.62 0.66 1</diffuse></material></visual>
+        <collision name="s"><pose>3.5 -6.5 1.25 0 0 0</pose>
+          <geometry><box><size>15.4 0.2 2.5</size></box></geometry></collision>
+        <visual name="sv"><pose>3.5 -6.5 1.25 0 0 0</pose>
+          <geometry><box><size>15.4 0.2 2.5</size></box></geometry>
+          <material><ambient>0.62 0.62 0.66 1</ambient><diffuse>0.62 0.62 0.66 1</diffuse></material></visual>
+        <collision name="w"><pose>-4.1 0 1.25 0 0 0</pose>
+          <geometry><box><size>0.2 13.0 2.5</size></box></geometry></collision>
+        <visual name="wv"><pose>-4.1 0 1.25 0 0 0</pose>
+          <geometry><box><size>0.2 13.0 2.5</size></box></geometry>
+          <material><ambient>0.62 0.62 0.66 1</ambient><diffuse>0.62 0.62 0.66 1</diffuse></material></visual>
+        <collision name="e"><pose>11.1 0 1.25 0 0 0</pose>
+          <geometry><box><size>0.2 13.0 2.5</size></box></geometry></collision>
+        <visual name="ev"><pose>11.1 0 1.25 0 0 0</pose>
+          <geometry><box><size>0.2 13.0 2.5</size></box></geometry>
+          <material><ambient>0.62 0.62 0.66 1</ambient><diffuse>0.62 0.62 0.66 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- ================= Pallet racks / storage shelves (1.8 m tall, steel blue) =================
+         North racks bound the lane from the north, south racks from the south. The gap between
+         opposing faces sets the aisle width. rack_n_corner juts down to y=0.7 next to the
+         walkway to occlude a worker descending the walkway. -->
+    <model name="rack_n_west">
+      <static>true</static>
+      <link name="link"><pose>1.5 2.35 0.9 0 0 0</pose>
+        <collision name="c"><geometry><box><size>1.0 1.7 1.8</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>1.0 1.7 1.8</size></box></geometry>
+          <material><ambient>0.28 0.36 0.52 1</ambient><diffuse>0.28 0.36 0.52 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="rack_n_corner">
+      <static>true</static>
+      <link name="link"><pose>3.3 1.95 0.9 0 0 0</pose>
+        <collision name="c"><geometry><box><size>1.4 2.5 1.8</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>1.4 2.5 1.8</size></box></geometry>
+          <material><ambient>0.28 0.36 0.52 1</ambient><diffuse>0.28 0.36 0.52 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="rack_n_east">
+      <static>true</static>
+      <link name="link"><pose>7.25 2.1 0.9 0 0 0</pose>
+        <collision name="c"><geometry><box><size>4.1 2.2 1.8</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>4.1 2.2 1.8</size></box></geometry>
+          <material><ambient>0.28 0.36 0.52 1</ambient><diffuse>0.28 0.36 0.52 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="rack_s_west">
+      <static>true</static>
+      <link name="link"><pose>1.9 -2.35 0.9 0 0 0</pose>
+        <collision name="c"><geometry><box><size>2.2 1.7 1.8</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>2.2 1.7 1.8</size></box></geometry>
+          <material><ambient>0.30 0.34 0.48 1</ambient><diffuse>0.30 0.34 0.48 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="rack_s_east">
+      <static>true</static>
+      <link name="link"><pose>7.25 -2.1 0.9 0 0 0</pose>
+        <collision name="c"><geometry><box><size>4.1 2.2 1.8</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>4.1 2.2 1.8</size></box></geometry>
+          <material><ambient>0.30 0.34 0.48 1</ambient><diffuse>0.30 0.34 0.48 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- ================= Production cells / machines (dark, 1.3 m tall) ================= -->
+    <model name="machine_east">
+      <static>true</static>
+      <link name="link"><pose>10.1 -2.2 0.65 0 0 0</pose>
+        <collision name="c"><geometry><box><size>1.2 1.4 1.3</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>1.2 1.4 1.3</size></box></geometry>
+          <material><ambient>0.20 0.22 0.24 1</ambient><diffuse>0.20 0.22 0.24 1</diffuse></material></visual>
+        <visual name="panel"><pose>0 0 0.55 0 0 0</pose>
+          <geometry><box><size>1.24 1.44 0.2</size></box></geometry>
+          <material><ambient>0.85 0.55 0.10 1</ambient><diffuse>0.85 0.55 0.10 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="machine_ne">
+      <static>true</static>
+      <link name="link"><pose>10.1 2.4 0.65 0 0 0</pose>
+        <collision name="c"><geometry><box><size>1.2 1.6 1.3</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>1.2 1.6 1.3</size></box></geometry>
+          <material><ambient>0.20 0.22 0.24 1</ambient><diffuse>0.20 0.22 0.24 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- ================= Structural columns (0.4 x 0.4, 2.5 m, concrete) ================= -->
+    <model name="columns">
+      <static>true</static>
+      <link name="link">
+        <collision name="c0"><pose>0 5.6 1.25 0 0 0</pose>
+          <geometry><box><size>0.4 0.4 2.5</size></box></geometry></collision>
+        <visual name="v0"><pose>0 5.6 1.25 0 0 0</pose>
+          <geometry><box><size>0.4 0.4 2.5</size></box></geometry>
+          <material><ambient>0.55 0.55 0.55 1</ambient><diffuse>0.55 0.55 0.55 1</diffuse></material></visual>
+        <collision name="c1"><pose>8 5.6 1.25 0 0 0</pose>
+          <geometry><box><size>0.4 0.4 2.5</size></box></geometry></collision>
+        <visual name="v1"><pose>8 5.6 1.25 0 0 0</pose>
+          <geometry><box><size>0.4 0.4 2.5</size></box></geometry>
+          <material><ambient>0.55 0.55 0.55 1</ambient><diffuse>0.55 0.55 0.55 1</diffuse></material></visual>
+        <collision name="c2"><pose>0 -5.6 1.25 0 0 0</pose>
+          <geometry><box><size>0.4 0.4 2.5</size></box></geometry></collision>
+        <visual name="v2"><pose>0 -5.6 1.25 0 0 0</pose>
+          <geometry><box><size>0.4 0.4 2.5</size></box></geometry>
+          <material><ambient>0.55 0.55 0.55 1</ambient><diffuse>0.55 0.55 0.55 1</diffuse></material></visual>
+        <collision name="c3"><pose>8 -5.6 1.25 0 0 0</pose>
+          <geometry><box><size>0.4 0.4 2.5</size></box></geometry></collision>
+        <visual name="v3"><pose>8 -5.6 1.25 0 0 0</pose>
+          <geometry><box><size>0.4 0.4 2.5</size></box></geometry>
+          <material><ambient>0.55 0.55 0.55 1</ambient><diffuse>0.55 0.55 0.55 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- ================= Pallet stacks (0.9 m, wood + boxes) - decorative obstacles ========= -->
+    <model name="pallets">
+      <static>true</static>
+      <link name="link">
+        <collision name="c0"><pose>0 4.5 0.45 0 0 0</pose>
+          <geometry><box><size>1.0 1.0 0.9</size></box></geometry></collision>
+        <visual name="v0"><pose>0 4.5 0.45 0 0 0</pose>
+          <geometry><box><size>1.0 1.0 0.9</size></box></geometry>
+          <material><ambient>0.52 0.38 0.20 1</ambient><diffuse>0.52 0.38 0.20 1</diffuse></material></visual>
+        <collision name="c1"><pose>8 4.4 0.45 0 0 0</pose>
+          <geometry><box><size>1.0 1.0 0.9</size></box></geometry></collision>
+        <visual name="v1"><pose>8 4.4 0.45 0 0 0</pose>
+          <geometry><box><size>1.0 1.0 0.9</size></box></geometry>
+          <material><ambient>0.52 0.38 0.20 1</ambient><diffuse>0.52 0.38 0.20 1</diffuse></material></visual>
+        <collision name="c2"><pose>2.2 -4.6 0.45 0 0 0</pose>
+          <geometry><box><size>1.0 1.0 0.9</size></box></geometry></collision>
+        <visual name="v2"><pose>2.2 -4.6 0.45 0 0 0</pose>
+          <geometry><box><size>1.0 1.0 0.9</size></box></geometry>
+          <material><ambient>0.52 0.38 0.20 1</ambient><diffuse>0.52 0.38 0.20 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- ================= Safety guard rail (0.5 m, hi-vis) at the restricted-zone edge ====== -->
+    <model name="guard_rail">
+      <static>true</static>
+      <link name="link">
+        <collision name="rail"><pose>-2.6 3.35 0.45 0 0 0</pose>
+          <geometry><box><size>2.4 0.06 0.1</size></box></geometry></collision>
+        <visual name="railv"><pose>-2.6 3.35 0.45 0 0 0</pose>
+          <geometry><box><size>2.4 0.06 0.1</size></box></geometry>
+          <material><ambient>0.90 0.75 0.10 1</ambient><diffuse>0.90 0.75 0.10 1</diffuse></material></visual>
+        <collision name="p0"><pose>-3.7 3.35 0.25 0 0 0</pose>
+          <geometry><box><size>0.08 0.08 0.5</size></box></geometry></collision>
+        <visual name="p0v"><pose>-3.7 3.35 0.25 0 0 0</pose>
+          <geometry><box><size>0.08 0.08 0.5</size></box></geometry>
+          <material><ambient>0.20 0.20 0.22 1</ambient><diffuse>0.20 0.20 0.22 1</diffuse></material></visual>
+        <collision name="p1"><pose>-1.5 3.35 0.25 0 0 0</pose>
+          <geometry><box><size>0.08 0.08 0.5</size></box></geometry></collision>
+        <visual name="p1v"><pose>-1.5 3.35 0.25 0 0 0</pose>
+          <geometry><box><size>0.08 0.08 0.5</size></box></geometry>
+          <material><ambient>0.20 0.20 0.22 1</ambient><diffuse>0.20 0.20 0.22 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- Charger cabinet at the charging pad (SW corner), 0.8 m, collision on. -->
+    <model name="charger_cabinet">
+      <static>true</static>
+      <link name="link"><pose>-3.6 -5.2 0.4 0 0 0</pose>
+        <collision name="c"><geometry><box><size>0.5 0.8 0.8</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.5 0.8 0.8</size></box></geometry>
+          <material><ambient>0.15 0.40 0.22 1</ambient><diffuse>0.15 0.40 0.22 1</diffuse></material></visual>
+      </link>
+    </model>
+
+  </world>
+</sdf>

@@ -35,6 +35,18 @@ from launch_ros.actions import Node
 # same. Both wire end to end. "crossing" (default) guarantees a pedestrian across the robot's
 # path via the "mixed" profile (even indices cross).
 SCENARIOS = {
+    "empty": {
+        "num_humans": 0,
+        "behavior_profile": "walking",
+        "seed": 42,
+        "spawn_region": [1.0, 12.0, -0.5, 1.4],
+    },
+    "single_crossing": {
+        "num_humans": 1,
+        "behavior_profile": "crossing",
+        "seed": 42,
+        "spawn_region": [1.0, 12.0, -0.5, 1.4],
+    },
     "crossing": {
         "num_humans": 3,
         "behavior_profile": "mixed",
@@ -46,6 +58,19 @@ SCENARIOS = {
         "behavior_profile": "walking",
         "seed": 42,
         "spawn_region": [1.0, 12.0, -0.5, 1.4],
+    },
+    "group": {
+        "num_humans": 4,
+        "behavior_profile": "group",
+        "group_size": 4,
+        "seed": 42,
+        "spawn_region": [1.0, 12.0, -0.5, 1.4],
+    },
+    "crowded": {
+        "num_humans": 8,
+        "behavior_profile": "mixed",
+        "seed": 42,
+        "spawn_region": [1.0, 12.0, -1.0, 1.4],
     },
 }
 
