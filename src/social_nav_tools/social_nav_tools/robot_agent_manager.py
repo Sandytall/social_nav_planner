@@ -33,8 +33,9 @@ def _yaw_to_quat(yaw: float) -> Quaternion:
 
 
 def _amr_sdf(name: str) -> str:
-    """A boxy AMR: kinematic (teleported, no physics) but WITH collision, so the lidar sees it
-    and the planner treats it as an obstacle to route around."""
+    """A recognizable AMR: kinematic (teleported, no physics) with a bright chassis, a dark
+    sensor tower and a beacon so it clearly reads as a robot rather than a floor box. The
+    collision box spans the main robot's lidar height (~0.4 m) so it is sensed and avoided."""
     return f"""<?xml version="1.0"?>
 <sdf version="1.6">
   <model name="{name}">
@@ -46,11 +47,20 @@ def _amr_sdf(name: str) -> str:
         <inertia><ixx>0.5</ixx><iyy>0.5</iyy><izz>0.5</izz>
           <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
       </inertial>
-      <collision name="c"><pose>0 0 0.25 0 0 0</pose>
-        <geometry><box><size>0.6 0.45 0.5</size></box></geometry></collision>
-      <visual name="v"><pose>0 0 0.25 0 0 0</pose>
-        <geometry><box><size>0.6 0.45 0.5</size></box></geometry>
-        <material><ambient>0.85 0.55 0.10 1</ambient><diffuse>0.85 0.55 0.10 1</diffuse></material>
+      <collision name="c"><pose>0 0 0.35 0 0 0</pose>
+        <geometry><box><size>0.65 0.50 0.70</size></box></geometry></collision>
+      <visual name="chassis"><pose>0 0 0.28 0 0 0</pose>
+        <geometry><box><size>0.65 0.50 0.55</size></box></geometry>
+        <material><ambient>0.95 0.62 0.10 1</ambient><diffuse>0.95 0.62 0.10 1</diffuse></material>
+      </visual>
+      <visual name="tower"><pose>0.12 0 0.72 0 0 0</pose>
+        <geometry><box><size>0.22 0.28 0.34</size></box></geometry>
+        <material><ambient>0.12 0.14 0.18 1</ambient><diffuse>0.12 0.14 0.18 1</diffuse></material>
+      </visual>
+      <visual name="beacon"><pose>0.12 0 0.93 0 0 0</pose>
+        <geometry><cylinder><radius>0.06</radius><length>0.08</length></cylinder></geometry>
+        <material><ambient>0.90 0.85 0.15 1</ambient><diffuse>0.90 0.85 0.15 1</diffuse>
+          <emissive>0.50 0.45 0.05 1</emissive></material>
       </visual>
     </link>
   </model>
