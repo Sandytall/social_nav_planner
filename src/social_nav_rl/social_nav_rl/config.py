@@ -48,6 +48,15 @@ def load_reward_config(path=None) -> RewardConfig:
     return cfg
 
 
+_PPO_KEYS = {"n_steps", "batch_size", "n_epochs", "gamma", "gae_lambda", "learning_rate",
+             "ent_coef", "vf_coef", "clip_range", "max_grad_norm"}
+
+
+def load_ppo_config(path=None) -> dict:
+    """PPO hyperparameters (a subset SB3 accepts) from ppo.yaml; unknown keys dropped."""
+    return {k: v for k, v in (_load(path) or {}).items() if k in _PPO_KEYS}
+
+
 def config_dir():
     """Installed config directory (share/social_nav_rl/config) if resolvable, else the source."""
     try:

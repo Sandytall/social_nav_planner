@@ -150,6 +150,7 @@ class SocialNavEnv(gym.Env if _GYM else object):
         self._steps = 0
         self._prev_v = self._prev_w = 0.0
         self._prev_goal_dist = 0.0
+        self._prev_success = None       # last episode's success, fed to the sampler on reset
 
         obs_dim = self.adapter.size + self.adapter.cfg.n_humans
         self.observation_space = spaces.Box(-1e3, 1e3, shape=(obs_dim,), dtype=np.float32)
@@ -159,7 +160,7 @@ class SocialNavEnv(gym.Env if _GYM else object):
         super().reset(seed=seed)
         seed = 0 if seed is None else int(seed)
         if self.episode_sampler is not None and isinstance(self.backend, MockBackend):
-            self.ep, seed = self.episode_sampler()
+            self.ep, seed = self.episode_sampler(self._prev_success)
             self.backend = MockBackend(self.ep, self.limits.dt)
         humans = self.backend.reset(seed)
         self._steps = 0
@@ -188,6 +189,9 @@ class SocialNavEnv(gym.Env if _GYM else object):
         truncated = self._steps >= self.ep.max_steps
         self._prev_v, self._prev_w = v, w
         self._prev_goal_dist = signals["goal_dist"]
+        if terminated or truncated:
+            self._prev_success = bool(events["reached"] and not events["collision"]
+                                      and not events["human_collision"])
 
         info = {"reward_components": components, "events": events,
                 "safety": decision.kind, "interventions": len(self.safety.log)}

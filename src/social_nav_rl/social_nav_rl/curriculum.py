@@ -76,6 +76,17 @@ class Curriculum:
         return False
 
 
+def curriculum_sampler(cur: "Curriculum", rng: random.Random):
+    """Return an episode sampler `f(prev_success) -> (EpisodeConfig, seed)` that records the
+    previous episode's outcome (advancing the level when the success rate clears the threshold)
+    then samples the next episode. Usable as SocialNavEnv(episode_sampler=...)."""
+    def sample(prev_success=None):
+        if prev_success is not None:
+            cur.record(bool(prev_success))
+        return cur.sample_episode(rng)
+    return sample
+
+
 def load_curriculum(cfg: dict = None, split: str = "train") -> Curriculum:
     cfg = cfg or {}
     return Curriculum(
