@@ -1,0 +1,219 @@
+<?xml version="1.0"?>
+<!-- SocialNav urban scene (Gazebo Classic SDF). A sidewalk running east (+x) past two
+     building facades, with a road and pedestrian crossing to the south. The sidewalk width
+     varies: ~3.0 m open stretches with a ~1.2 m pinch in the middle where the crossing is.
+     Authored in the map frame: the urban launch spawns the robot at the world origin so
+     map == odom == world, which lets the pedestrian manager place people by the same
+     coordinates it publishes on /social_nav/humans.
+
+     Only simple primitives are used (no meshes) for performance. Buildings and street
+     furniture have collisions and are tall enough for the robot's ~0.5 m lidar; the road,
+     sidewalk, curbs and paint are visual-only. -->
+<sdf version="1.6">
+  <world name="urban_world">
+
+    <include><uri>model://sun</uri></include>
+    <include><uri>model://ground_plane</uri></include>
+
+    <!-- Extra fill light so the tall facades do not cast the walkway into deep shadow.
+         Uses no online model DB. -->
+    <light name="fill" type="directional">
+      <pose>4 -2 8 0 0 0</pose>
+      <diffuse>0.5 0.5 0.5 1</diffuse>
+      <specular>0.1 0.1 0.1 1</specular>
+      <direction>-0.3 0.4 -1.0</direction>
+      <cast_shadows>false</cast_shadows>
+    </light>
+
+    <physics type="ode">
+      <max_step_size>0.005</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>200</real_time_update_rate>
+    </physics>
+
+    <!-- Provides /gazebo/set_entity_state so the pedestrian manager can move people. -->
+    <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
+      <ros><namespace>/gazebo</namespace></ros>
+      <update_rate>50.0</update_rate>
+    </plugin>
+
+    <!-- Road surface (visual only, thin). -->
+    <model name="road">
+      <static>true</static>
+      <link name="link">
+        <visual name="v">
+          <pose>6 -3.75 0.005 0 0 0</pose>
+          <geometry><box><size>16 4.5 0.01</size></box></geometry>
+          <material>
+            <ambient>0.18 0.18 0.20 1</ambient>
+            <diffuse>0.18 0.18 0.20 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Dashed centre line down the road. -->
+    <model name="lane_markings">
+      <static>true</static>
+      <link name="link">
+        <visual name="d0"><pose>0 -3.75 0.012 0 0 0</pose>
+          <geometry><box><size>0.6 0.12 0.01</size></box></geometry>
+          <material><ambient>0.9 0.9 0.9 1</ambient><diffuse>0.9 0.9 0.9 1</diffuse></material></visual>
+        <visual name="d1"><pose>2 -3.75 0.012 0 0 0</pose>
+          <geometry><box><size>0.6 0.12 0.01</size></box></geometry>
+          <material><ambient>0.9 0.9 0.9 1</ambient><diffuse>0.9 0.9 0.9 1</diffuse></material></visual>
+        <visual name="d2"><pose>3.5 -3.75 0.012 0 0 0</pose>
+          <geometry><box><size>0.6 0.12 0.01</size></box></geometry>
+          <material><ambient>0.9 0.9 0.9 1</ambient><diffuse>0.9 0.9 0.9 1</diffuse></material></visual>
+        <visual name="d3"><pose>8 -3.75 0.012 0 0 0</pose>
+          <geometry><box><size>0.6 0.12 0.01</size></box></geometry>
+          <material><ambient>0.9 0.9 0.9 1</ambient><diffuse>0.9 0.9 0.9 1</diffuse></material></visual>
+        <visual name="d4"><pose>10 -3.75 0.012 0 0 0</pose>
+          <geometry><box><size>0.6 0.12 0.01</size></box></geometry>
+          <material><ambient>0.9 0.9 0.9 1</ambient><diffuse>0.9 0.9 0.9 1</diffuse></material></visual>
+        <visual name="d5"><pose>12 -3.75 0.012 0 0 0</pose>
+          <geometry><box><size>0.6 0.12 0.01</size></box></geometry>
+          <material><ambient>0.9 0.9 0.9 1</ambient><diffuse>0.9 0.9 0.9 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- Zebra crossing on the road at x ~ 5.5 (bars perpendicular to traffic). -->
+    <model name="crossing">
+      <static>true</static>
+      <link name="link">
+        <visual name="b0"><pose>5.00 -3.55 0.012 0 0 0</pose>
+          <geometry><box><size>0.12 3.9 0.01</size></box></geometry>
+          <material><ambient>0.92 0.92 0.92 1</ambient><diffuse>0.92 0.92 0.92 1</diffuse></material></visual>
+        <visual name="b1"><pose>5.25 -3.55 0.012 0 0 0</pose>
+          <geometry><box><size>0.12 3.9 0.01</size></box></geometry>
+          <material><ambient>0.92 0.92 0.92 1</ambient><diffuse>0.92 0.92 0.92 1</diffuse></material></visual>
+        <visual name="b2"><pose>5.50 -3.55 0.012 0 0 0</pose>
+          <geometry><box><size>0.12 3.9 0.01</size></box></geometry>
+          <material><ambient>0.92 0.92 0.92 1</ambient><diffuse>0.92 0.92 0.92 1</diffuse></material></visual>
+        <visual name="b3"><pose>5.75 -3.55 0.012 0 0 0</pose>
+          <geometry><box><size>0.12 3.9 0.01</size></box></geometry>
+          <material><ambient>0.92 0.92 0.92 1</ambient><diffuse>0.92 0.92 0.92 1</diffuse></material></visual>
+        <visual name="b4"><pose>6.00 -3.55 0.012 0 0 0</pose>
+          <geometry><box><size>0.12 3.9 0.01</size></box></geometry>
+          <material><ambient>0.92 0.92 0.92 1</ambient><diffuse>0.92 0.92 0.92 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- Sidewalk surface in three segments: wide (3.0 m) - narrow pinch (1.2 m) - wide. -->
+    <model name="sidewalk">
+      <static>true</static>
+      <link name="link">
+        <visual name="wide_west"><pose>1 0.1 0.01 0 0 0</pose>
+          <geometry><box><size>4 3.0 0.02</size></box></geometry>
+          <material><ambient>0.55 0.55 0.55 1</ambient><diffuse>0.55 0.55 0.55 1</diffuse></material></visual>
+        <visual name="pinch"><pose>5 1.0 0.01 0 0 0</pose>
+          <geometry><box><size>4 1.2 0.02</size></box></geometry>
+          <material><ambient>0.55 0.55 0.55 1</ambient><diffuse>0.55 0.55 0.55 1</diffuse></material></visual>
+        <visual name="wide_east"><pose>10 0.1 0.01 0 0 0</pose>
+          <geometry><box><size>6 3.0 0.02</size></box></geometry>
+          <material><ambient>0.55 0.55 0.55 1</ambient><diffuse>0.55 0.55 0.55 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- Curbs along the sidewalk/road boundary (low, visual only). -->
+    <model name="curbs">
+      <static>true</static>
+      <link name="link">
+        <visual name="west"><pose>1 -1.4 0.06 0 0 0</pose>
+          <geometry><box><size>4 0.15 0.12</size></box></geometry>
+          <material><ambient>0.7 0.7 0.7 1</ambient><diffuse>0.7 0.7 0.7 1</diffuse></material></visual>
+        <visual name="pinch"><pose>5 0.4 0.06 0 0 0</pose>
+          <geometry><box><size>4 0.15 0.12</size></box></geometry>
+          <material><ambient>0.7 0.7 0.7 1</ambient><diffuse>0.7 0.7 0.7 1</diffuse></material></visual>
+        <visual name="east"><pose>10 -1.4 0.06 0 0 0</pose>
+          <geometry><box><size>6 0.15 0.12</size></box></geometry>
+          <material><ambient>0.7 0.7 0.7 1</ambient><diffuse>0.7 0.7 0.7 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- Building A (west) facade, x in [-1, 3.5]. Body box + recessed door/window panels. -->
+    <model name="building_a">
+      <static>true</static>
+      <link name="body">
+        <pose>1.25 3.1 1.3 0 0 0</pose>
+        <collision name="c"><geometry><box><size>4.5 3.0 2.6</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>4.5 3.0 2.6</size></box></geometry>
+          <material><ambient>0.72 0.66 0.55 1</ambient><diffuse>0.72 0.66 0.55 1</diffuse></material></visual>
+      </link>
+      <link name="trim">
+        <visual name="door"><pose>0.3 1.54 1.0 0 0 0</pose>
+          <geometry><box><size>0.9 0.05 2.0</size></box></geometry>
+          <material><ambient>0.30 0.20 0.12 1</ambient><diffuse>0.30 0.20 0.12 1</diffuse></material></visual>
+        <visual name="win1"><pose>1.8 1.54 1.6 0 0 0</pose>
+          <geometry><box><size>1.0 0.05 1.0</size></box></geometry>
+          <material><ambient>0.45 0.62 0.72 1</ambient><diffuse>0.45 0.62 0.72 1</diffuse></material></visual>
+        <visual name="win2"><pose>2.9 1.54 1.6 0 0 0</pose>
+          <geometry><box><size>0.8 0.05 1.0</size></box></geometry>
+          <material><ambient>0.45 0.62 0.72 1</ambient><diffuse>0.45 0.62 0.72 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- Building B (east) facade, x in [7.5, 13]. -->
+    <model name="building_b">
+      <static>true</static>
+      <link name="body">
+        <pose>10.25 3.1 1.5 0 0 0</pose>
+        <collision name="c"><geometry><box><size>5.5 3.0 3.0</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>5.5 3.0 3.0</size></box></geometry>
+          <material><ambient>0.60 0.62 0.68 1</ambient><diffuse>0.60 0.62 0.68 1</diffuse></material></visual>
+      </link>
+      <link name="trim">
+        <visual name="door"><pose>8.2 1.54 1.05 0 0 0</pose>
+          <geometry><box><size>1.0 0.05 2.1</size></box></geometry>
+          <material><ambient>0.25 0.25 0.28 1</ambient><diffuse>0.25 0.25 0.28 1</diffuse></material></visual>
+        <visual name="win1"><pose>9.8 1.54 1.8 0 0 0</pose>
+          <geometry><box><size>1.2 0.05 1.1</size></box></geometry>
+          <material><ambient>0.45 0.62 0.72 1</ambient><diffuse>0.45 0.62 0.72 1</diffuse></material></visual>
+        <visual name="win2"><pose>11.8 1.54 1.8 0 0 0</pose>
+          <geometry><box><size>1.2 0.05 1.1</size></box></geometry>
+          <material><ambient>0.45 0.62 0.72 1</ambient><diffuse>0.45 0.62 0.72 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- Street furniture: lamp post, bin, bench (collisions on, lidar-visible). -->
+    <model name="lamp_post">
+      <static>true</static>
+      <link name="link">
+        <collision name="c"><pose>3 -1.2 1.3 0 0 0</pose>
+          <geometry><cylinder><radius>0.08</radius><length>2.6</length></cylinder></geometry></collision>
+        <visual name="pole"><pose>3 -1.2 1.3 0 0 0</pose>
+          <geometry><cylinder><radius>0.08</radius><length>2.6</length></cylinder></geometry>
+          <material><ambient>0.20 0.20 0.22 1</ambient><diffuse>0.20 0.20 0.22 1</diffuse></material></visual>
+        <visual name="head"><pose>3 -1.0 2.55 0 0 0</pose>
+          <geometry><box><size>0.2 0.4 0.15</size></box></geometry>
+          <material><ambient>0.30 0.30 0.32 1</ambient><diffuse>0.30 0.30 0.32 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <model name="bin">
+      <static>true</static>
+      <link name="link">
+        <pose>7 -1.2 0.45 0 0 0</pose>
+        <collision name="c"><geometry><box><size>0.3 0.3 0.9</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.3 0.3 0.9</size></box></geometry>
+          <material><ambient>0.15 0.35 0.20 1</ambient><diffuse>0.15 0.35 0.20 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <model name="bench">
+      <static>true</static>
+      <link name="seat">
+        <pose>10 1.1 0.45 0 0 0</pose>
+        <collision name="c"><geometry><box><size>1.2 0.4 0.9</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>1.2 0.4 0.1</size></box></geometry>
+          <material><ambient>0.45 0.30 0.18 1</ambient><diffuse>0.45 0.30 0.18 1</diffuse></material></visual>
+      </link>
+      <link name="back">
+        <pose>10 1.28 0.7 0 0 0</pose>
+        <visual name="v"><geometry><box><size>1.2 0.06 0.4</size></box></geometry>
+          <material><ambient>0.45 0.30 0.18 1</ambient><diffuse>0.45 0.30 0.18 1</diffuse></material></visual>
+      </link>
+    </model>
+
+  </world>
+</sdf>

@@ -1,8 +1,8 @@
 name: CI
 
 # Build + unit tests in a ROS 2 Humble container. Does NOT need a physical robot or a
-# display (MASTER_PROMPT §57). Simulation/benchmark runs need Gazebo + a GPU and are run
-# on a workstation (see docs/BENCHMARKING.md), not on hosted CI runners.
+# display. Simulation/benchmark runs need Gazebo + a GPU and are run on a workstation
+# (see docs/BENCHMARKING.md), not on hosted CI runners.
 
 on:
   push:
@@ -33,15 +33,15 @@ jobs:
           source /opt/ros/humble/setup.bash
           colcon build --symlink-install
 
-      - name: Unit tests (GoogleTest, §35)
+      - name: Unit tests
         shell: bash
         run: |
           source /opt/ros/humble/setup.bash
           source install/setup.bash
           colcon test --packages-select \
             social_nav_core social_nav_prediction social_nav_human_model \
-            social_nav_controller --event-handlers console_direct+
+            social_nav_controller social_nav_benchmarks --event-handlers console_direct+
           colcon test-result --verbose
 
-  # TODO(§57): add a clang-format / clang-tidy lint job once SPDX license headers are added
-  #            (currently deferred; see IMPLEMENTATION_STATUS.md "Run/CI gotchas").
+  # TODO: add a clang-format / clang-tidy lint job once SPDX license headers are added
+  #       (currently deferred).

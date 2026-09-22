@@ -10,7 +10,7 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 
-# Benchmark / experiment output (never commit generated data, §11)
+# Benchmark / experiment output (never commit generated data)
 results/
 social_nav_results/
 *.bag/

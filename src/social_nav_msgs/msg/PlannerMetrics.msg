@@ -1,6 +1,6 @@
-# Real-time performance report from the SocialNav controller (MASTER_PROMPT §30).
+# Real-time performance report from the SocialNav controller.
 # Published on /social_nav/debug/metrics. Latencies are per computeVelocityCommands call
-# over a rolling window; never fabricate these - they are measured (§62).
+# over a rolling window; these are measured, never fabricated.
 
 std_msgs/Header header
 

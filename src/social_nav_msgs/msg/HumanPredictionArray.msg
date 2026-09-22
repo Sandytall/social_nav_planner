@@ -1,4 +1,4 @@
-# A time-stamped set of predicted human trajectories (MASTER_PROMPT §8).
+# A time-stamped set of predicted human trajectories.
 # The header frame_id/stamp applies to all contained predictions.
 
 std_msgs/Header header

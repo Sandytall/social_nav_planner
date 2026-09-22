@@ -19,6 +19,8 @@ setup(
     entry_points={
         "console_scripts": [
             "social-nav-benchmark = social_nav_benchmarks.runner:main",
+            "social-nav-analyze = social_nav_benchmarks.analyze:main",
+            "social-nav-report = social_nav_benchmarks.report_html:main",
         ],
     },
 )

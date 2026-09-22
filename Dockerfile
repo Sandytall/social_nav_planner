@@ -1,4 +1,4 @@
-# SocialNav Planner — reproducible build (MASTER_PROMPT §40).
+# SocialNav Planner — reproducible build.
 # Ubuntu 22.04 + ROS 2 Humble + Gazebo Classic + Nav2.
 FROM osrf/ros:humble-desktop-full
 

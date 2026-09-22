@@ -24,6 +24,10 @@ from rclpy.action import ActionClient
 from rclpy.node import Node
 
 from social_nav_benchmarks import metrics as M
+from social_nav_benchmarks import events as EV
+from social_nav_benchmarks import trajectory as TRAJ
+from social_nav_benchmarks import failure_classifier as FC
+from social_nav_benchmarks import report_html as RPT
 from social_nav_benchmarks.scenarios import get_scenario, scenario_names
 
 try:
@@ -201,8 +205,15 @@ def main():
             print(f"[{n}/{total}] scenario={name} run={run} ...", flush=True)
             record = run_one(name, run, goal, get_scenario(name)["timeout"], logdir)
             row = M.compute(record, goal)
-            with open(os.path.join(outdir, f"{name}_{run:03d}.json"), "w") as f:
+            row["failure"] = FC.classify(row, record)
+            base = os.path.join(outdir, f"{name}_{run:03d}")
+            with open(base + ".json", "w") as f:
                 json.dump(row, f, indent=2)
+            # Additive artefacts consumed by social-nav-analyze / social-nav-report.
+            with open(base + "_record.json", "w") as f:
+                json.dump(record, f)
+            EV.write_events(EV.detect_events(record, goal), base + "_events.json")
+            TRAJ.write_trajectory_csv(record, base + "_trajectory.csv")
             rows.append(row)
             print(f"      -> success={row.get('success')} status={row.get('status')} "
                   f"min_clear={row.get('min_human_distance_m')} "
@@ -217,7 +228,12 @@ def main():
             w.writerow(r)
 
     _write_report(outdir, rows, names, meta)
-    print(f"\nDone. Results in {outdir}\n  summary.csv, report.md, per-run JSON, logs/")
+    try:
+        RPT.generate(outdir, rows=rows, meta=meta)
+    except Exception as exc:  # noqa: BLE001 - a report failure must not lose run data
+        print(f"[warn] HTML report generation failed: {exc}")
+    print(f"\nDone. Results in {outdir}\n"
+          "  summary.csv, report.md, report.html, per-run JSON/events/trajectory, logs/")
 
 
 def _write_report(outdir, rows, names, meta):
