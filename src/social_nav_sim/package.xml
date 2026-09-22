@@ -6,7 +6,7 @@
   <description>
     Gazebo Classic simulation (worlds + spawn) for the SocialNav Planner.
   </description>
-  <maintainer email="sandeep@origin.tech">Sandeep</maintainer>
+  <maintainer email="sandeepnaik89711@gmail.com">Sandeep</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

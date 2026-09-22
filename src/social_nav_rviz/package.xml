@@ -4,7 +4,7 @@
   <name>social_nav_rviz</name>
   <version>0.1.0</version>
   <description>RViz configuration for the SocialNav Planner.</description>
-  <maintainer email="kaustubh@origin.tech">Sandeep</maintainer>
+  <maintainer email="sandeepnaik89711@gmail.com">Sandeep</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

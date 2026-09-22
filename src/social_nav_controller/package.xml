@@ -4,11 +4,11 @@
   <name>social_nav_controller</name>
   <version>0.1.0</version>
   <description>
-    Socially-aware Nav2 controller plugin for the SocialNav Planner (MASTER_PROMPT §25).
-    Phase 2 follows the global plan (regulated pure pursuit); later phases add sampled
-    trajectory generation and social-cost scoring.
+    Socially-aware Nav2 controller plugin for the SocialNav Planner. Follows the global
+    plan with a regulated pure-pursuit base command, then samples candidate trajectories
+    and scores them against a social cost model to steer around people.
   </description>
-  <maintainer email="sandeep@origin.tech">Sandeep</maintainer>
+  <maintainer email="sandeepnaik89711@gmail.com">Sandeep</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

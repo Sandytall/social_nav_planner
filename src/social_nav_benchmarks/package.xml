@@ -7,7 +7,7 @@
     Automated benchmarking framework for the SocialNav Planner: runs deterministic
     scenarios headless, records metrics, writes JSON/CSV/report.
   </description>
-  <maintainer email="kaustubh@origin.tech">Sandeep</maintainer>
+  <maintainer email="sandeepnaik89711@gmail.com">Sandeep</maintainer>
   <license>Apache-2.0</license>
 
   <exec_depend>rclpy</exec_depend>

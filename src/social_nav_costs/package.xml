@@ -4,10 +4,10 @@
   <name>social_nav_costs</name>
   <version>0.1.0</version>
   <description>
-    SocialLayer Nav2 costmap plugin for the SocialNav Planner (MASTER_PROMPT §15):
-    injects anisotropic human personal-space cost so the planner routes around people.
+    SocialLayer Nav2 costmap plugin for the SocialNav Planner: injects anisotropic
+    human personal-space cost so the planner routes around people.
   </description>
-  <maintainer email="kaustubh@origin.tech">Sandeep</maintainer>
+  <maintainer email="sandeepnaik89711@gmail.com">Sandeep</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

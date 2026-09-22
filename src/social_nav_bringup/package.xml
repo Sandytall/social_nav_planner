@@ -7,7 +7,7 @@
     Launch files and Nav2 parameters that wire the SocialNavController into Nav2:
     a mapless rolling-costmap navigation demo.
   </description>
-  <maintainer email="sandeep@origin.tech">Sandeep</maintainer>
+  <maintainer email="sandeepnaik89711@gmail.com">Sandeep</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

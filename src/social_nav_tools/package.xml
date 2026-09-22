@@ -7,7 +7,7 @@
     Tooling for the SocialNav Planner: a simulated human publisher so the controller
     has people to reason about without a real detector.
   </description>
-  <maintainer email="sandeep@origin.tech">Sandeep</maintainer>
+  <maintainer email="sandeepnaik89711@gmail.com">Sandeep</maintainer>
   <license>Apache-2.0</license>
 
   <exec_depend>rclpy</exec_depend>

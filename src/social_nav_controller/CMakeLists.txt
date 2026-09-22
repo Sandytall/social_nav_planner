@@ -6,14 +6,14 @@ if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
 endif()
 
-# Optimize by default (§53 real-time): the DWA planner loop is Eigen-heavy and far too
-# slow at -O0. Callers can override with -DCMAKE_BUILD_TYPE=...
+# Optimize by default: the planner loop is Eigen-heavy and far too slow at -O0.
+# Callers can override with -DCMAKE_BUILD_TYPE=...
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)  # §51
+  add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
 find_package(ament_cmake REQUIRED)
@@ -78,7 +78,7 @@ ament_export_libraries(${PROJECT_NAME})
 ament_export_dependencies(${dependencies})
 
 if(BUILD_TESTING)
-  # Style/lint deferred to CI (§57, Phase 14); logic tests only here.
+  # Style/lint deferred to CI; logic tests only here.
   find_package(ament_cmake_gtest REQUIRED)
   ament_add_gtest(${PROJECT_NAME}_geometry_tests test/test_path_geometry.cpp)
   target_link_libraries(${PROJECT_NAME}_geometry_tests ${PROJECT_NAME} Eigen3::Eigen)

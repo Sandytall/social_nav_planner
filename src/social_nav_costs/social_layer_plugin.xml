@@ -5,7 +5,7 @@
     base_class_type="nav2_costmap_2d::Layer">
     <description>
       Stamps anisotropic human personal-space cost into a Nav2 costmap so the planner
-      routes around people (MASTER_PROMPT §15). Cost is soft (below lethal).
+      routes around people. Cost is soft (below lethal).
     </description>
   </class>
 </library>

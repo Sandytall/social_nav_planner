@@ -4,11 +4,11 @@
   <name>social_nav_prediction</name>
   <version>0.1.0</version>
   <description>
-    Human motion prediction models for the SocialNav Planner (MASTER_PROMPT §8):
-    constant velocity, constant acceleration, and an uncertainty-aware model whose
-    positional uncertainty grows with the prediction horizon.
+    Human motion prediction models for the SocialNav Planner: constant velocity,
+    constant acceleration, and an uncertainty-aware model whose positional
+    uncertainty grows with the prediction horizon.
   </description>
-  <maintainer email="sandeep@origin.tech">Sandeep</maintainer>
+  <maintainer email="sandeepnaik89711@gmail.com">Sandeep</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
