@@ -1,0 +1,21 @@
+# Per-component reward weights + parameters. Every term is logged separately; set a weight to
+# 0.0 to ablate it. Keep collision penalties dominant so the policy cannot trade safety for speed.
+weights:
+  goal_progress: 1.0
+  goal_completion: 50.0
+  collision: -50.0
+  human_collision: -60.0
+  ttc: -2.0
+  clearance: 0.5
+  social_zone: -1.0
+  path_efficiency: -0.2
+  time: -0.02
+  smoothness: -0.1
+  angular_smoothness: -0.1
+  stopping: -0.1
+  oscillation: -0.2
+  group: -0.5
+params:
+  ttc_danger: 3.0
+  comfort_dist: 1.2
+  stop_speed: 0.05

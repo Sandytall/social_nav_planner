@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>social_nav_rl</name>
+  <version>0.1.0</version>
+  <description>
+    Experimental reinforcement-learning social navigation policy. Consumes the existing human
+    tracking + classical prediction as a fixed-size observation, learns a continuous local
+    command, and runs behind a safety supervisor. The learning stack (gymnasium,
+    stable-baselines3, torch) is an optional pip dependency used only for training/eval; the
+    observation/reward/safety/action core is pure and needs neither ROS nor a GPU.
+  </description>
+  <maintainer email="sandeepnaik89711@gmail.com">Sandeep</maintainer>
+  <license>Apache-2.0</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>social_nav_msgs</exec_depend>
+  <exec_depend>social_nav_tools</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <!-- gymnasium / stable_baselines3 / torch are pip-installed by the user for training. -->
+
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
