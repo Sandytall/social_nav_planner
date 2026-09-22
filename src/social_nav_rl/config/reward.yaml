@@ -1,17 +1,38 @@
 # Per-component reward weights + parameters. Every term is logged separately; set a weight to
 # 0.0 to ablate it. Keep collision penalties dominant so the policy cannot trade safety for speed.
 weights:
-  goal_progress: 1.0
-  goal_completion: 50.0
-  collision: -50.0
+  # Dense pull to the goal. Raised from 1.0/50.0: with the old values "wander safely" (~-30)
+  # beat "risk a -60 human-collision", so the policy learned never to arrive. A stronger
+  # progress gradient + a large completion bonus make attempting the goal worth the risk. This
+  # is safe: an episode can't be both `reached` and `collision`, so a big completion reward pulls
+  # toward reaching *safely*, it does not let the policy trade a collision for speed.
+  # goal_progress: dense per-step reward for closing distance to the goal. Kept at 8 — lowering it
+  # to 5 (2026-09-23) REGRESSED medium (success 0.65->0.35, clearance 0.91->0.79m, more collisions),
+  # so the strong forward pull is actually needed to keep the policy committing through the aisle.
+  goal_progress: 8.0
+  goal_completion: 100.0
+  # Static-obstacle (rack/wall) collision. Softened -50 -> -20: with real racks everywhere, a -50
+  # on every exploration slip taught the policy to freeze (time out) rather than risk moving, so it
+  # never discovered the aisle a naive straight line follows at 0.80 success. -20 still makes
+  # reaching (+100 completion) clearly better than clipping a rack, but lets exploration survive.
+  collision: -20.0
   human_collision: -60.0
-  ttc: -2.0
-  clearance: 0.5
-  social_zone: -1.0
+  # Proactive distance-keeping (2026-09-23): the --no-safety policy moved but drove right up to
+  # people then dodged too late. ttc -2 -> -4: react to a collision *course* earlier. social_zone
+  # -1 -> -2: prefer not entering personal space (keep a buffer, don't graze). clearance 0.5 -> 1.0:
+  # reward margin to the nearest person. Kept moderate: 4 people in a 1.7 m aisle can't hold a big
+  # gap, so over-penalizing would make it impassable. Safe now (no supervisor masking) -> drives
+  # steering, not freezing.
+  ttc: -4.0
+  clearance: 1.0
+  social_zone: -2.0
   path_efficiency: -0.2
-  time: -0.02
-  smoothness: -0.1
-  angular_smoothness: -0.1
+  time: -0.03
+  # -0.2 (mild): a small bump over the original -0.1 to reduce jerk without over-constraining
+  # maneuvering. -0.4 regressed medium hard (best 0.50 -> 0.20: the policy couldn't turn enough to
+  # avoid), so keep smoothness gentle.
+  smoothness: -0.2
+  angular_smoothness: -0.2
   stopping: -0.1
   oscillation: -0.2
   group: -0.5

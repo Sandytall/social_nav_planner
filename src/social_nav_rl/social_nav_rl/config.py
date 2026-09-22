@@ -49,7 +49,7 @@ def load_reward_config(path=None) -> RewardConfig:
 
 
 _PPO_KEYS = {"n_steps", "batch_size", "n_epochs", "gamma", "gae_lambda", "learning_rate",
-             "ent_coef", "vf_coef", "clip_range", "max_grad_norm"}
+             "ent_coef", "vf_coef", "clip_range", "max_grad_norm", "target_kl"}
 
 
 def load_ppo_config(path=None) -> dict:

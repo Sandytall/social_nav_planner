@@ -10,3 +10,9 @@ use_uncertainty: true
 use_ttc: true
 use_social_zone: true
 use_group: true
+# Static-obstacle perception (down-sampled lidar). Lets the policy avoid walls/racks; computed by
+# ray-cast in the mock and from the real /scan in Gazebo (same beams). Set use_lidar:false to
+# reproduce the older obstacle-blind observation (e.g. to evaluate the pre-lidar 0.84 checkpoint).
+use_lidar: true
+n_lidar: 12
+lidar_range: 5.0

@@ -10,9 +10,25 @@ def _robot():
 
 def test_size_and_empty():
     a = ObservationAdapter(ObsConfig(n_humans=5))
-    assert a.size == ROBOT_FEATURES + 5 * HUMAN_FEATURES
+    assert a.size == ROBOT_FEATURES + 5 * HUMAN_FEATURES + a.cfg.n_lidar  # lidar appended last
     obs, mask = a.build(_robot(), [])
     assert obs.shape == (a.size,) and mask.sum() == 0 and np.all(np.isfinite(obs))
+    # with no scan passed, the lidar slots read "clear" (1.0)
+    base = ROBOT_FEATURES + 5 * HUMAN_FEATURES
+    assert np.allclose(obs[base:base + a.cfg.n_lidar], 1.0)
+
+
+def test_lidar_features_normalized_and_after_humans():
+    cfg = ObsConfig(n_humans=2, n_lidar=4, lidar_range=5.0)
+    a = ObservationAdapter(cfg)
+    obs, _ = a.build(_robot(), [], lidar=[5.0, 2.5, 0.0, 5.0])
+    base = ROBOT_FEATURES + 2 * HUMAN_FEATURES               # lidar sits after the human blocks
+    assert np.allclose(obs[base:base + 4], [1.0, 0.5, 0.0, 1.0])
+
+
+def test_lidar_off_keeps_old_size():
+    a = ObservationAdapter(ObsConfig(n_humans=5, use_lidar=False))
+    assert a.size == ROBOT_FEATURES + 5 * HUMAN_FEATURES
 
 
 def test_nearest_n_selection_and_padding():

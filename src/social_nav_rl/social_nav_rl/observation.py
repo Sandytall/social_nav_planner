@@ -69,6 +69,13 @@ class ObsConfig:
     use_ttc: bool = True
     use_social_zone: bool = True
     use_group: bool = True
+    # Static-obstacle perception: a down-sampled lidar (n_lidar beams, normalised min-range per
+    # beam) so the policy can avoid walls/racks. Computed by ray-cast in the mock and from the
+    # real /scan in Gazebo (same beams). Appended AFTER the human blocks so human indexing and the
+    # non-learned baselines are unaffected.
+    use_lidar: bool = True
+    n_lidar: int = 12
+    lidar_range: float = 5.0
 
 
 class ObservationAdapter:
@@ -76,12 +83,20 @@ class ObservationAdapter:
         self.cfg = cfg or ObsConfig()
 
     @property
+    def _n_lidar(self) -> int:
+        return self.cfg.n_lidar if self.cfg.use_lidar else 0
+
+    @property
     def size(self) -> int:
-        return ROBOT_FEATURES + self.cfg.n_humans * HUMAN_FEATURES
+        return ROBOT_FEATURES + self.cfg.n_humans * HUMAN_FEATURES + self._n_lidar
 
     def build(self, robot: RobotState, humans: List[Human],
-              predictions: Optional[Dict[int, Prediction]] = None):
-        """Return (obs float32[size], mask float32[n_humans]) with mask=1 for real humans."""
+              predictions: Optional[Dict[int, Prediction]] = None, lidar=None):
+        """Return (obs float32[size], mask float32[n_humans]) with mask=1 for real humans.
+
+        `lidar` is an optional length-n_lidar array of raw beam ranges (m); it is normalised and
+        appended after the human blocks. When omitted, the lidar slots read 1.0 (all clear).
+        """
         predictions = predictions or {}
         obs = np.zeros(self.size, dtype=np.float32)
         mask = np.zeros(self.cfg.n_humans, dtype=np.float32)
@@ -97,6 +112,15 @@ class ObservationAdapter:
             lo = ROBOT_FEATURES + i * HUMAN_FEATURES
             obs[lo:lo + HUMAN_FEATURES] = self._human_block(robot, h, predictions.get(h.id))
             mask[i] = 1.0
+
+        if self._n_lidar:
+            base = ROBOT_FEATURES + self.cfg.n_humans * HUMAN_FEATURES
+            if lidar is not None:
+                from social_nav_rl.perception import normalize_lidar
+                vals = normalize_lidar(lidar, self.cfg.lidar_range)
+                obs[base:base + self.cfg.n_lidar] = vals[:self.cfg.n_lidar]
+            else:
+                obs[base:base + self.cfg.n_lidar] = 1.0   # unknown -> assume clear
         return F.safe_array(obs), mask
 
     def _select(self, robot: RobotState, humans: List[Human]) -> List[Human]:

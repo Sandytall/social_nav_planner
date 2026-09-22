@@ -18,13 +18,15 @@ from social_nav_rl import config as C
 from social_nav_rl.curriculum import SEED_SPLITS
 from social_nav_rl.env import EpisodeConfig, SocialNavEnv
 from social_nav_rl.latency import LatencyMeter
-from social_nav_rl.policies import ConstantPolicy, StraightToGoalPolicy
+from social_nav_rl.policies import ConstantPolicy, SocialForcePolicy, StraightToGoalPolicy
 from social_nav_rl.replay import FailureReplay
 
 
-def _make_policy(args):
+def _make_policy(args, obs_cfg=None):
     if args.policy == "straight":
         return StraightToGoalPolicy()
+    if args.policy == "sfm":
+        return SocialForcePolicy(n_humans=(obs_cfg.n_humans if obs_cfg else 5))
     if args.policy == "stop":
         return ConstantPolicy(-1.0, 0.0)
     if args.policy == "rl":
@@ -35,9 +37,26 @@ def _make_policy(args):
     raise SystemExit(f"unknown policy {args.policy!r}")
 
 
-def run_episode(env, policy, seed, lat, comfort=1.2):
+def _dbg_inputs(env, obs):
+    """(#humans perceived, nearest-human norm dist, lidar min norm) as the MODEL sees them."""
+    from social_nav_rl.observation import HUMAN_FEATURES, ROBOT_FEATURES
+    cfg = env.adapter.cfg
+    nH = cfg.n_humans
+    n_people = int(obs[obs.size - nH:].sum())
+    lmin = 1.0
+    if cfg.use_lidar:
+        base = ROBOT_FEATURES + nH * HUMAN_FEATURES
+        lmin = float(obs[base:base + cfg.n_lidar].min())
+    nearest = float(obs[ROBOT_FEATURES + 4]) if n_people else None   # human block[4] = distance
+    return n_people, nearest, lmin
+
+
+def run_episode(env, policy, seed, lat, comfort=1.2, debug=False):
     obs, _ = env.reset(seed=seed)
+    if hasattr(policy, "reset"):
+        policy.reset()   # let a frame-stacking RL policy clear its stack at episode start
     r = env.backend.robot
+    straight_dist = math.hypot(env.backend.goal[0] - r["x"], env.backend.goal[1] - r["y"])
     replay = FailureReplay(env.ep.environment, env.ep.scenario, env.ep.difficulty,
                            seed, list(env.backend.goal))
     m = {"min_clearance": math.inf, "min_ttc": math.inf, "path_length": 0.0,
@@ -49,6 +68,11 @@ def run_episode(env, policy, seed, lat, comfort=1.2):
     while not done:
         with lat.measure():
             action = policy.act(obs)
+        if debug and steps % 15 == 0:
+            npl, nearest, lmin = _dbg_inputs(env, obs)
+            print(f"  [dbg] t={steps} humans_seen={npl} "
+                  f"nearest_norm={('%.2f' % nearest) if nearest is not None else '--'} "
+                  f"lidar_min_norm={lmin:.2f} act=[v={action[0]:.2f} w={action[1]:.2f}]")
         obs, _, term, trunc, info = env.step(action)
         events = info["events"]
         rb = env.backend.robot
@@ -81,19 +105,31 @@ def run_episode(env, policy, seed, lat, comfort=1.2):
               "min_ttc": None if m["min_ttc"] >= 1e3 else round(m["min_ttc"], 3),
               "path_length": round(m["path_length"], 3), "num_stops": m["num_stops"],
               "oscillations": m["oscillations"], "social_violations": m["social_violations"],
-              "safety_interventions": m["interventions"]}
+              "safety_interventions": m["interventions"],
+              "straight_dist": round(straight_dist, 3),
+              "avg_speed": round(m["path_length"] / max(steps * env.limits.dt, 1e-6), 3)}
     return result, (replay if not success else None), outcome
 
 
 def main():
     ap = argparse.ArgumentParser(description="Evaluate an RL / baseline policy")
-    ap.add_argument("--policy", default="straight", choices=["straight", "stop", "rl"])
+    ap.add_argument("--policy", default="straight",
+                    choices=["straight", "sfm", "stop", "rl"],
+                    help="sfm = classical Social-Force local planner (classical baseline)")
     ap.add_argument("--model", default="", help="checkpoint for --policy rl")
     ap.add_argument("--environment", default="urban")
     ap.add_argument("--scenario", default="normal")
     ap.add_argument("--difficulty", default="medium")
     ap.add_argument("--split", default="test", choices=list(SEED_SPLITS))
     ap.add_argument("--episodes", type=int, default=20)
+    ap.add_argument("--backend", default="mock", choices=["mock", "gazebo"],
+                    help="gazebo = high-fidelity real sim (needs rl_sim.launch.py running)")
+    ap.add_argument("--no-safety", dest="no_safety", action="store_true",
+                    help="evaluate WITHOUT the safety supervisor (raw policy actions); default keeps "
+                         "the supervisor on as the deploy-time backstop")
+    ap.add_argument("--debug", action="store_true",
+                    help="print the model's live inputs (humans seen, nearest human, lidar min) "
+                         "every ~15 steps, to verify it is actually ingesting lidar/humans")
     ap.add_argument("--max-steps", dest="max_steps", type=int, default=600)
     ap.add_argument("--config", default="")
     ap.add_argument("--out", default=os.path.expanduser("~/social_nav_rl_results"))
@@ -104,14 +140,19 @@ def main():
     ep = EpisodeConfig(environment=args.environment, scenario=args.scenario,
                        difficulty=args.difficulty,
                        max_steps=10 if args.check else args.max_steps)
+    backend = None
+    if args.backend == "gazebo":
+        from social_nav_rl.gazebo_backend import GazeboBackend
+        backend = GazeboBackend(ep, exp["action"].dt, obs_cfg=exp["observation"])
     env = SocialNavEnv(ep=ep, obs_cfg=exp["observation"], limits=exp["action"],
-                       reward_cfg=exp["reward"], safety_cfg=exp["safety"])
-    policy = _make_policy(args)
+                       reward_cfg=exp["reward"], safety_cfg=exp["safety"], backend=backend,
+                       safe_filter=not args.no_safety)
+    policy = _make_policy(args, exp["observation"])
     lat = LatencyMeter()
     lo, _ = SEED_SPLITS[args.split]
 
     if args.check:
-        res, _, _ = run_episode(env, policy, lo, lat)
+        res, _, _ = run_episode(env, policy, lo, lat, debug=args.debug)
         print(f"[check] ran 1 episode ({args.policy}) outcome={res['outcome']} "
               f"latency_p95={lat.summary()['p95']} ms -> OK.")
         return
@@ -121,7 +162,7 @@ def main():
     outdir = os.path.join(args.out, f"{args.policy}_{args.environment}_{stamp}")
     os.makedirs(outdir, exist_ok=True)
     for i in range(args.episodes):
-        res, replay, outcome = run_episode(env, policy, lo + i, lat)
+        res, replay, outcome = run_episode(env, policy, lo + i, lat, debug=(args.debug and i == 0))
         results.append(res)
         if replay is not None:
             replay.finalize(outcome)
