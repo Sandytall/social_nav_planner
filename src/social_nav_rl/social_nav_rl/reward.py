@@ -29,6 +29,9 @@ DEFAULT_PARAMS = {
     "ttc_danger": 3.0,       # s: below this, TTC is penalised
     "comfort_dist": 1.2,     # m: personal space to maintain
     "stop_speed": 0.05,      # m/s: below this counts as stopped
+    "wait_clearance": 1.5,   # m: if a human is this close, stopping is WAITING (not dawdling) and
+    #                          is not penalised - lets the robot yield to a blocking group/crosser
+    #                          in a narrow corridor with no room to go around.
 }
 
 
@@ -49,6 +52,9 @@ class RewardComputer:
         clr = s.get("min_clearance")
         reached = bool(s.get("reached"))
         speed = abs(g("v"))
+        # Stopping is only "dawdling" (penalised) in open space; stopping with a human within
+        # wait_clearance is legitimate YIELDING (e.g. letting a group/crosser pass in a tight aisle).
+        waiting = clr is not None and clr <= p["wait_clearance"]
         return {
             "goal_progress": g("prev_goal_dist") - g("goal_dist"),
             "goal_completion": 1.0 if reached else 0.0,
@@ -61,7 +67,7 @@ class RewardComputer:
             "time": 1.0,
             "smoothness": abs(g("v") - g("prev_v")),
             "angular_smoothness": abs(g("w") - g("prev_w")),
-            "stopping": 1.0 if (speed < p["stop_speed"] and not reached) else 0.0,
+            "stopping": 1.0 if (speed < p["stop_speed"] and not reached and not waiting) else 0.0,
             "oscillation": 1.0 if s.get("osc_switch") else 0.0,
             "group": g("group_intrusion"),
         }

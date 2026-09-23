@@ -22,6 +22,47 @@ result files in `docs/benchmarks/` (`scripts/rl_benchmark.py`); the numbers are 
 - This report deliberately does not declare a winner. It reports measured behavior and the
   conditions under which each method succeeds or fails.
 
+## 1.1 Final cross-environment result (generalist policy)
+
+The evaluation was later extended from the single factory map (§4+) to a **generalist** policy
+(PPO + frame-stack) trained across all five maps × scenarios × difficulties — feasibility-filtered,
+with unpredictable pedestrians and a multi-scenario eval so "best" is selected as a generalist, not a
+single-map specialist. Success on **solvable** episodes (`succ|solv`), medium difficulty, 20
+episodes/cell, held-out test seeds (`scripts/rl_benchmark.py`):
+
+**`normal` — goal-reaching through a shared corridor:**
+
+| Environment | Straight | Social-Force | RL |
+|---|:--:|:--:|:--:|
+| factory   | 0.50 | 0.71 | **0.86** |
+| warehouse | 0.50 | **0.86** | 0.71 |
+| urban     | 0.53 | **0.65** | 0.35 |
+| office    | 0.00 | 0.00 | 0.00 |
+| hospital  | 0.00 | 0.00 | 0.00 |
+
+**Notable per-scenario:**
+
+| Scenario | Straight | Social-Force | RL | Note |
+|---|:--:|:--:|:--:|---|
+| factory `direction_change`   | 1.00 | 0.00 | **1.00** | RL matches straight |
+| warehouse `crossing`         | 1.00 | 1.00 | **1.00** | RL ties classical |
+| urban `sudden_stop`          | 0.00 | 0.00 | **1.00** | **only RL waits/yields** |
+| office/urban/hospital `direction_change` | 1.00 | 1.00 | 0.00 | RL over-avoids on narrow maps |
+| factory `crossing`           | 1.00 | 1.00 | 0.00 | RL inconsistent map-to-map |
+
+- **RL's standout:** urban `sudden_stop` = 1.00 while both baselines are 0.00 — the only method that
+  stops and waits for a pedestrian to pass (payoff of the waiting-aware reward).
+- **RL keeps more social distance** — larger clearance to people almost everywhere (e.g. ~2.0 m on
+  head-on approaches vs ~0.75 m for the baselines).
+- **office & hospital:** every method (including a straight line) scores ~0 on `normal`/`crossing` —
+  narrow, furniture-filled corridors are hard for classical *and* learned planners alike.
+- `approaching` and `dense_crowd` are ~0% feasible everywhere (excluded as unsolvable for all).
+
+**Verdict:** a credible generalist, not a dominant one — matches or beats classical on the maps it was
+built for, does something classical can't (yield/wait), keeps better social distance, but does not win
+across the board, and the hardest maps defeat everyone. The sections below are the deeper factory
+single-map analysis that preceded the generalist.
+
 ## 2. System under test
 
 - **Robot:** differential drive, max linear 0.8 m/s, max angular 1.2 rad/s, control dt 0.05 s,
@@ -96,6 +137,41 @@ So the fair benchmark does **not** reproduce a large RL advantage. On solvable s
 with a well-tuned classical reactive planner; the naive 0.84-vs-0.16 gap was an artifact of testing
 in open space with no static obstacles and no obstacle perception.
 
+## 4.1 Feasibility-aware view (separating "impossible" from "policy failure")
+
+Raw success conflates two very different things: scenarios no planner could solve in the time budget,
+and scenarios that are solvable but the policy botches. A feasibility oracle
+(`social_nav_rl/feasibility.py`) checks, per seed, whether *any* simple strategy — pick an aisle lane
+(centre / offset) and a start delay (wait for a crosser to clear), then drive to the goal — is
+collision-free against the real static geometry and the deterministic pedestrian trajectories. It's a
+conservative lower bound (a cleverer path might exist), reported as `feasible_frac`. Then:
+
+- `success | solvable` = success rate over seeds a path exists for.
+- `safe_on_infeasible` = fraction of *impossible* seeds where the policy at least stays collision-free
+  (i.e. correctly waits/yields instead of crashing).
+
+Key findings (from `docs/benchmarks/factory_feasibility.csv`):
+
+- **`approaching` (head-on) is 0% feasible, and `dense_crowd` (medium) too.** A pedestrian coming
+  head-on in a 1.7 m aisle genuinely has no collision-free path in 30 s. Their 0% success is the
+  **environment**, not any planner — they should be excluded from planner-quality claims.
+- **`sudden_stop` is 100% feasible but 0% success for *every* method.** The oracle solves it by
+  *waiting* for the stopped person; none of straight, Social-Force, or RL wait. This is a shared
+  **policy gap** (no yielding/waiting behavior), not an environment limit — and the clearest target
+  for future work.
+- **No method fails gracefully:** `safe_on_infeasible = 0.0` across the board. On impossible
+  head-on cells the classical planners drive into the *person*; the RL policy over-avoids the person
+  (keeps ~4 m clearance) and drives into a *rack* instead. A policy that simply stopped would score
+  1.0 here.
+- On `success | solvable`, RL and the classical baselines are again close: e.g. `normal`/easy 0.94 for
+  both RL and straight; RL's one clear deficit is `crossing`/easy (0.00 — it over-avoids into a rack),
+  which is a joint human-plus-static-geometry reasoning failure.
+
+The practical conclusion: the honest comparison is on the *solvable, interactive* subset, and the
+two most valuable next steps both fall out of this analysis — a yielding/WAIT behavior (for
+`sudden_stop` and graceful failure) and a better joint human+geometry representation (for
+`crossing`/easy).
+
 ## 5. Deployment result — factory, safety supervisor on all methods
 
 From `docs/benchmarks/factory_with_safety.csv`. Adding the supervisor as a backstop for every method:
@@ -169,14 +245,44 @@ Generalization is limited, as expected for a policy trained on a single environm
   in Gazebo through `social_nav_benchmarks`; a matched RL-vs-Nav2 run in Gazebo (both on the same
   world/seeds) is the natural next step and is scaffolded but not executed here.
 
+## 8.1 Closing the transfer gap (domain randomization + system-ID) — built, not yet validated
+
+The §8 sim-to-sim gap (mock `crossing` up to 1.00 vs Gazebo ~0.20) is the single biggest threat to
+the result. Three pieces of transfer work are now in the codebase; **all require a retrain on the
+user's compute before their effect can be reported, so no improved number is claimed here.**
+
+- **Cheaper, richer observation (Item 2).** Beyond the 12-beam lidar, the observation now carries
+  derived corridor geometry (front/left/right clearances, a lateral centre-offset "which way is more
+  open") and a crossing time-to-conflict feature — quantities an MLP struggles to read from raw beams.
+  These target the two recurring §4.1 failures (person one side + rack the other; crossing timing).
+- **Domain randomization (Item 3).** Training can now randomize, per episode, the robot's control
+  latency + velocity-tracking noise + speed, the lidar's noise/dropout, and the crowd's speed
+  (`--domain-rand`). A policy trained across this distribution should survive the real diff-drive
+  dynamics and noisy `/scan` that the deterministic mock lacks — the mechanism behind the 1.00→0.20
+  drop.
+- **System-ID (Item 3).** `scripts/sysid.py` drives an identical open-loop command program through
+  both backends and fits the actual gap (velocity/yaw gain, tracking noise, control latency, lidar
+  noise/dropout), printing DR ranges to use instead of guessing them. On the mock it correctly fits
+  ~zero deviation (rig sanity check).
+
+A correctness fix landed alongside: under multi-scenario/curriculum training the mock backend was
+rebuilt each episode without its observation config, so the lidar silently went blind after the
+first episode — meaning some earlier "obstacle-aware" runs were effectively obstacle-blind. Fixed;
+this alone may change the retrained numbers.
+
+**Honest status:** these are the right levers for transfer and are unit-tested, but the delivered
+model predates them (78-d obs, no DR). The claim they improve transfer is a hypothesis until the
+86-d + `--domain-rand` retrain and a fresh Gazebo benchmark are run.
+
 ## 9. Reproducibility
 
 - Model under test: `~/social_nav_rl_checkpoints/BEST_factory_medium_multi/ppo_factory_42_best.zip`
   (PPO, MLP 256×256, trained empty→easy→medium, `--no-safety`, multi-scenario).
 - Config: `src/social_nav_rl/config/` (observation/action/reward/safety/ppo).
-- Regenerate every table: `python3 scripts/rl_benchmark.py …` (see `docs/COMMANDS.md`), test split,
-  20 episodes/cell.
-- Full commands, training pipeline, and history: `docs/COMMANDS.md`.
+- Regenerate every table: `python3 scripts/rl_benchmark.py …` (see the README's *Run it* section),
+  test split, 20 episodes/cell.
+- Full training pipeline, commands, and the build story: [`JOURNAL.md`](JOURNAL.md) and the
+  [README](../README.md).
 
 ## 10. Conclusion (measured, not editorial)
 

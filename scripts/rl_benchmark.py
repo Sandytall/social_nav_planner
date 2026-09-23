@@ -26,6 +26,7 @@ from social_nav_rl import config as C
 from social_nav_rl.curriculum import SEED_SPLITS
 from social_nav_rl.env import EpisodeConfig, SocialNavEnv
 from social_nav_rl.evaluate import run_episode
+from social_nav_rl.feasibility import is_feasible
 from social_nav_rl.latency import LatencyMeter
 from social_nav_rl.policies import SocialForcePolicy, StraightToGoalPolicy, load_rl_policy
 
@@ -37,9 +38,17 @@ def _aggregate(rows):
     n = len(rows)
     mc = [r["min_clearance"] for r in rows if r["min_clearance"] is not None]
     ttc = [r["min_ttc"] for r in rows if r["min_ttc"] is not None]
+    feas = [r for r in rows if r.get("feasible")]
+    infeas = [r for r in rows if not r.get("feasible")]
     return {
         "episodes": n,
         "success": round(sum(r["success"] for r in rows) / n, 3),
+        # feasibility split: success only over seeds a collision-free path exists for, and how often
+        # the policy stays safe (no collision) when none does (i.e. correctly waits/yields).
+        "feasible_frac": round(len(feas) / n, 3),
+        "success_solvable": (round(sum(r["success"] for r in feas) / len(feas), 3) if feas else None),
+        "safe_on_infeasible": (round(sum(1 for r in infeas if not (r["collision"]
+                               or r["human_collision"])) / len(infeas), 3) if infeas else None),
         "collision": round(sum(r["collision"] for r in rows) / n, 3),
         "human_collision": round(sum(r["human_collision"] for r in rows) / n, 3),
         "timeout": round(sum(1 for r in rows if r["outcome"] == "timeout") / n, 3),
@@ -104,6 +113,7 @@ def main():
                 rows = []
                 for i in range(args.episodes):
                     res, _, _ = run_episode(env, policy, lo + i, lat)
+                    res["feasible"] = is_feasible(args.environment, sc, diff, lo + i)
                     res.update(policy=pol_name, environment=args.environment,
                                scenario=sc, difficulty=diff)
                     rows.append(res)
@@ -112,13 +122,15 @@ def main():
                 agg.update(policy=pol_name, environment=args.environment, scenario=sc,
                            difficulty=diff, latency_p95_ms=lat.summary()["p95"])
                 agg_rows.append(agg)
-                print(f"{pol_name:8} {diff:6} {sc:16} {agg['success']:5.2f} "
-                      f"{agg['collision'] + agg['human_collision']:5.2f} "
-                      f"{('%.2f' % agg['min_clearance_m']) if agg['min_clearance_m'] else '--':>6} "
-                      f"{agg['avg_speed']:5.2f}")
+                ss = agg["success_solvable"]
+                print(f"{pol_name:8} {diff:6} {sc:16} succ={agg['success']:4.2f} "
+                      f"solvable={agg['feasible_frac']:4.2f} "
+                      f"succ|solv={('%.2f' % ss) if ss is not None else ' -- '} "
+                      f"clr={('%.2f' % agg['min_clearance_m']) if agg['min_clearance_m'] else '--'}")
     raw.close()
 
-    cols = ["policy", "environment", "difficulty", "scenario", "episodes", "success", "collision",
+    cols = ["policy", "environment", "difficulty", "scenario", "episodes", "success",
+            "feasible_frac", "success_solvable", "safe_on_infeasible", "collision",
             "human_collision", "timeout", "min_clearance_m", "min_ttc_s", "avg_speed", "nav_time_s",
             "path_length_m", "oscillations", "latency_p95_ms"]
     with open(os.path.join(outdir, "aggregate.csv"), "w", newline="") as f:

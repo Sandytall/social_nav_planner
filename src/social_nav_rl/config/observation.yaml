@@ -16,3 +16,11 @@ use_group: true
 use_lidar: true
 n_lidar: 12
 lidar_range: 5.0
+# Derived corridor-geometry + crossing-conflict features (see ObsConfig). Cheap, stateless; help
+# the policy reason about "person one side + rack the other" and crossing timing.
+use_geometry: true
+# Higher-resolution forward depth sector (finer obstacle/gap sensing where the robot is heading) on
+# top of the 360-deg lidar. OFF by default; enabling changes the obs size, so it needs a fresh model.
+use_front_depth: false
+n_front: 12
+front_fov: 120.0

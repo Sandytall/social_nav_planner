@@ -10,12 +10,35 @@ def _robot():
 
 def test_size_and_empty():
     a = ObservationAdapter(ObsConfig(n_humans=5))
-    assert a.size == ROBOT_FEATURES + 5 * HUMAN_FEATURES + a.cfg.n_lidar  # lidar appended last
+    # robot + humans + lidar + geometry block
+    assert a.size == ROBOT_FEATURES + 5 * HUMAN_FEATURES + a.cfg.n_lidar + a._n_geom
     obs, mask = a.build(_robot(), [])
     assert obs.shape == (a.size,) and mask.sum() == 0 and np.all(np.isfinite(obs))
     # with no scan passed, the lidar slots read "clear" (1.0)
     base = ROBOT_FEATURES + 5 * HUMAN_FEATURES
     assert np.allclose(obs[base:base + a.cfg.n_lidar], 1.0)
+
+
+def test_geometry_off_matches_no_block():
+    on = ObservationAdapter(ObsConfig(n_humans=5))
+    off = ObservationAdapter(ObsConfig(n_humans=5, use_geometry=False))
+    assert on.size - off.size == on.N_GEOM
+
+
+def test_front_depth_off_by_default():
+    a = ObservationAdapter(ObsConfig(n_humans=5))
+    assert a._n_front == 0 and not a.cfg.use_front_depth
+
+
+def test_front_depth_adds_block_and_normalizes_last():
+    cfg = ObsConfig(n_humans=2, n_lidar=4, use_geometry=False,
+                    use_front_depth=True, n_front=6, lidar_range=5.0)
+    a = ObservationAdapter(cfg)
+    assert a.size == ROBOT_FEATURES + 2 * HUMAN_FEATURES + 4 + 6
+    obs, _ = a.build(_robot(), [], lidar=[5.0, 5.0, 5.0, 5.0],
+                     front_depth=[5.0, 2.5, 0.0, 5.0, 5.0, 5.0])
+    fbase = ROBOT_FEATURES + 2 * HUMAN_FEATURES + 4          # geometry off -> front right after lidar
+    assert np.allclose(obs[fbase:fbase + 6], [1.0, 0.5, 0.0, 1.0, 1.0, 1.0])
 
 
 def test_lidar_features_normalized_and_after_humans():
@@ -27,7 +50,7 @@ def test_lidar_features_normalized_and_after_humans():
 
 
 def test_lidar_off_keeps_old_size():
-    a = ObservationAdapter(ObsConfig(n_humans=5, use_lidar=False))
+    a = ObservationAdapter(ObsConfig(n_humans=5, use_lidar=False, use_geometry=False))
     assert a.size == ROBOT_FEATURES + 5 * HUMAN_FEATURES
 
 

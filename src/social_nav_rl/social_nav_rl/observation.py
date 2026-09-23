@@ -76,26 +76,73 @@ class ObsConfig:
     use_lidar: bool = True
     n_lidar: int = 12
     lidar_range: float = 5.0
+    # Derived geometry+interaction features (cheap, stateless): corridor clearances + centre-offset
+    # from the lidar (6), and a crossing conflict = normalized time-to-intersection difference +
+    # side (2). Targets the 'person one side + rack the other' and crossing-timing failures.
+    use_geometry: bool = True
+    # Higher-resolution forward depth sector (n_front beams over +/- front_fov/2, normalised) on top
+    # of the coarse 360-deg lidar, for finer obstacle/gap sensing where the robot is heading.
+    # Computed by ray-cast in the mock and from the /scan front cone in Gazebo. OFF by default
+    # (enabling it changes the obs size, so it needs a fresh model). Appended AFTER the geometry block.
+    use_front_depth: bool = False
+    n_front: int = 12
+    front_fov: float = 120.0
 
 
 class ObservationAdapter:
     def __init__(self, cfg: ObsConfig = None):
         self.cfg = cfg or ObsConfig()
 
+    N_GEOM = 8   # 6 corridor-geometry + 2 crossing-conflict features
+
     @property
     def _n_lidar(self) -> int:
         return self.cfg.n_lidar if self.cfg.use_lidar else 0
 
     @property
+    def _n_geom(self) -> int:
+        return self.N_GEOM if self.cfg.use_geometry else 0
+
+    @property
+    def _n_front(self) -> int:
+        return self.cfg.n_front if self.cfg.use_front_depth else 0
+
+    @property
     def size(self) -> int:
-        return ROBOT_FEATURES + self.cfg.n_humans * HUMAN_FEATURES + self._n_lidar
+        return (ROBOT_FEATURES + self.cfg.n_humans * HUMAN_FEATURES
+                + self._n_lidar + self._n_geom + self._n_front)
+
+    def _crossing_conflict(self, robot, chosen):
+        """(normalized time-to-intersection difference, crossing side) for the tightest crosser.
+        ~0 => robot and a crossing pedestrian reach the same spot at the same time (conflict)."""
+        cyaw, syaw = math.cos(-robot.yaw), math.sin(-robot.yaw)
+        v_robot = max(abs(robot.v), 0.2)
+        best_dt, side, found = 5.0, 0.0, False
+        for h in chosen:
+            rx, ry = F.to_robot_frame(h.x, h.y, robot.x, robot.y, robot.yaw)
+            vfy = syaw * h.vx + cyaw * h.vy
+            vfx = cyaw * h.vx - syaw * h.vy
+            if abs(vfy) < 0.05:
+                continue                                  # not crossing laterally
+            t_h = -ry / vfy                               # time to reach the robot's forward axis
+            if t_h <= 0.0 or t_h > 15.0:
+                continue
+            x_cross = rx + vfx * t_h
+            if x_cross <= 0.0:
+                continue                                  # crossing behind the robot
+            dt = x_cross / v_robot - t_h
+            if not found or abs(dt) < abs(best_dt):
+                best_dt, side, found = dt, (1.0 if ry > 0 else -1.0), True
+        return (float(np.clip(best_dt / 5.0, -1.0, 1.0)) if found else 1.0), side
 
     def build(self, robot: RobotState, humans: List[Human],
-              predictions: Optional[Dict[int, Prediction]] = None, lidar=None):
+              predictions: Optional[Dict[int, Prediction]] = None, lidar=None, front_depth=None):
         """Return (obs float32[size], mask float32[n_humans]) with mask=1 for real humans.
 
         `lidar` is an optional length-n_lidar array of raw beam ranges (m); it is normalised and
         appended after the human blocks. When omitted, the lidar slots read 1.0 (all clear).
+        `front_depth` is an optional length-n_front array of raw forward-sector ranges (m), appended
+        last (after the geometry block); omitted -> reads 1.0 (all clear).
         """
         predictions = predictions or {}
         obs = np.zeros(self.size, dtype=np.float32)
@@ -121,6 +168,27 @@ class ObservationAdapter:
                 obs[base:base + self.cfg.n_lidar] = vals[:self.cfg.n_lidar]
             else:
                 obs[base:base + self.cfg.n_lidar] = 1.0   # unknown -> assume clear
+
+        if self._n_geom:
+            gbase = ROBOT_FEATURES + self.cfg.n_humans * HUMAN_FEATURES + self._n_lidar
+            if lidar is not None:
+                from social_nav_rl.perception import corridor_features
+                obs[gbase:gbase + 6] = corridor_features(lidar, self.cfg.lidar_range,
+                                                         self.cfg.n_lidar)
+            else:
+                obs[gbase:gbase + 6] = 1.0                # unknown geometry -> assume clear
+            dt, side = self._crossing_conflict(robot, chosen)
+            obs[gbase + 6], obs[gbase + 7] = dt, side
+
+        if self._n_front:
+            fbase = (ROBOT_FEATURES + self.cfg.n_humans * HUMAN_FEATURES
+                     + self._n_lidar + self._n_geom)
+            if front_depth is not None:
+                from social_nav_rl.perception import normalize_lidar
+                vals = normalize_lidar(front_depth, self.cfg.lidar_range)
+                obs[fbase:fbase + self.cfg.n_front] = vals[:self.cfg.n_front]
+            else:
+                obs[fbase:fbase + self.cfg.n_front] = 1.0     # unknown -> assume clear
         return F.safe_array(obs), mask
 
     def _select(self, robot: RobotState, humans: List[Human]) -> List[Human]:

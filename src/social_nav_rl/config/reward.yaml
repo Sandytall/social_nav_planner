@@ -37,3 +37,6 @@ params:
   ttc_danger: 3.0
   comfort_dist: 1.2
   stop_speed: 0.05
+  # Stopping with a human within this many metres is treated as yielding, not dawdling, so the
+  # `stopping` penalty does not fire - lets the robot wait for a blocking group in a tight aisle.
+  wait_clearance: 1.5

@@ -66,9 +66,11 @@
       <axis xyz="0 1 0"/>
     </joint>
     <link name="${name}_link">
+      <!-- Primitive cylinder visual (not the wheel.stl mesh): the mesh did not render as a wheel
+           in the GUI, and a cylinder is a faithful wheel shape that always shows in Gazebo + RViz. -->
       <visual>
-        <origin rpy="0 0 0" xyz="0 0 0"/>
-        <geometry><mesh filename="${mesh}/visual/wheel.stl"/></geometry>
+        <origin rpy="1.5707963 0 0" xyz="0 0 0"/>
+        <geometry><cylinder length="${wheel_len}" radius="${wheel_radius}"/></geometry>
         <material name="mir_black"/>
       </visual>
       <collision>

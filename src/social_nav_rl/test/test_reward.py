@@ -34,6 +34,18 @@ def test_ttc_penalty_only_when_dangerous():
     assert safe["ttc"] == 0.0 and danger["ttc"] < 0.0
 
 
+def test_stopping_penalized_in_open_space():
+    # stationary, not at goal, no human nearby -> dawdling -> penalized
+    _, c = RewardComputer().compute({"v": 0.0, "reached": False, "min_clearance": 5.0})
+    assert c["stopping"] < 0.0
+
+
+def test_stopping_not_penalized_when_yielding_to_close_human():
+    # stationary with a human within wait_clearance -> waiting/yielding -> NOT penalized
+    _, c = RewardComputer().compute({"v": 0.0, "reached": False, "min_clearance": 1.0})
+    assert c["stopping"] == 0.0
+
+
 def test_zero_weights_zero_total():
     cfg = RewardConfig(weights={k: 0.0 for k in DEFAULT_WEIGHTS})
     total, _ = RewardComputer(cfg).compute({"collision": True, "reached": True})

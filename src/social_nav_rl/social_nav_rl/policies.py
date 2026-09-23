@@ -122,17 +122,44 @@ def load_rl_policy(model_path: str):
     the wrapper transparently stacks frames at eval time via FrameStacker, resetting the stack at
     each episode start (through ``reset()``), so no caller needs to know the stack depth.
     """
-    from stable_baselines3 import PPO
-    model = PPO.load(model_path)
+    from stable_baselines3 import PPO, SAC
+    # Pick the algorithm from the sibling .meta.json (PPO.load can't read a SAC/LSTM zip). Fall back
+    # to trying PPO then SAC so older checkpoints without meta still load.
+    import json
+    import os
+    algo_map = {"ppo": PPO, "sac": SAC}
+    try:
+        from sb3_contrib import RecurrentPPO
+        algo_map["recurrent_ppo"] = RecurrentPPO
+    except ImportError:
+        RecurrentPPO = None
+    meta = os.path.splitext(model_path)[0] + ".meta.json"
+    algo = None
+    if os.path.exists(meta):
+        try:
+            with open(meta) as f:
+                algo = json.load(f).get("algorithm")
+        except Exception:
+            algo = None
+    if algo in algo_map:
+        model = algo_map[algo].load(model_path)
+    else:
+        try:
+            model = PPO.load(model_path)
+        except Exception:
+            model = SAC.load(model_path)
+    recurrent = model.__class__.__name__ == "RecurrentPPO"
     model_dim = int(np.prod(model.observation_space.shape))
 
     class _RL:
         def __init__(self):
             self._stacker = None
             self._need_reset = True
+            self._lstm = None            # RecurrentPPO hidden state, carried across the episode
 
         def reset(self):
             self._need_reset = True
+            self._lstm = None
 
         def act(self, obs):
             obs = np.asarray(obs, dtype=np.float32)
@@ -142,8 +169,13 @@ def load_rl_policy(model_path: str):
                 x = self._stacker.reset(obs) if self._need_reset else self._stacker.push(obs)
             else:
                 x = obs
+            if recurrent:
+                ep_start = np.ones((1,), dtype=bool) if self._need_reset else np.zeros((1,), dtype=bool)
+                action, self._lstm = model.predict(
+                    x, state=self._lstm, episode_start=ep_start, deterministic=True)
+            else:
+                action, _ = model.predict(x, deterministic=True)
             self._need_reset = False
-            action, _ = model.predict(x, deterministic=True)
             return action
 
     return _RL()

@@ -73,6 +73,81 @@ def downsample_scan(ranges, angle_min, angle_increment, n_beams=12, max_range=5.
     return out
 
 
+def front_beam_angles(n_beams, fov_deg):
+    """Robot-relative angles of `n_beams` forward beams evenly spanning +/- fov/2 (0 = ahead).
+
+    A higher-resolution forward "depth sector" on top of the coarse 360-deg lidar: it packs more
+    beams into the front cone (where the robot is heading), so it resolves narrow gaps and
+    approaching obstacles the 30-deg/beam lidar blurs. Same robot-frame convention as the lidar.
+    """
+    if n_beams <= 0:
+        return np.zeros(0, dtype=np.float32)
+    half = math.radians(fov_deg) / 2.0
+    if n_beams == 1:
+        return np.array([0.0], dtype=np.float32)
+    step = (2.0 * half) / (n_beams - 1)
+    return np.array([-half + i * step for i in range(n_beams)], dtype=np.float32)
+
+
+def raycast_front(x, y, yaw, boxes, n_beams=12, fov_deg=120.0, max_range=5.0):
+    """Forward depth sector (raw ranges, m) by ray-casting `boxes` over the front cone (mock)."""
+    out = np.full(n_beams, max_range, dtype=np.float32)
+    for i, off in enumerate(front_beam_angles(n_beams, fov_deg)):
+        ang = yaw + float(off)
+        dx, dy = math.cos(ang), math.sin(ang)
+        best = max_range
+        for (xmin, ymin, xmax, ymax) in boxes:
+            t = _ray_aabb(x, y, dx, dy, xmin, ymin, xmax, ymax)
+            if t is not None and t < best:
+                best = t
+        out[i] = best
+    return out
+
+
+def downsample_scan_front(ranges, angle_min, angle_increment, n_beams=12, fov_deg=120.0,
+                          max_range=5.0):
+    """Bin a real /scan into the same forward-sector beams (min range per bin), for Gazebo."""
+    out = np.full(n_beams, max_range, dtype=np.float32)
+    half = math.radians(fov_deg) / 2.0
+    step = (2.0 * half) / max(1, n_beams)
+    for j in range(len(ranges)):
+        r = ranges[j]
+        if not math.isfinite(r) or r <= 0.0:
+            continue
+        a = angle_min + j * angle_increment
+        a = (a + math.pi) % (2.0 * math.pi) - math.pi          # wrap to [-pi, pi)
+        if a < -half or a >= half:
+            continue                                           # outside the forward cone
+        b = min(max(int((a + half) / step), 0), n_beams - 1)
+        r = min(r, max_range)
+        if r < out[b]:
+            out[b] = r
+    return out
+
+
 def normalize_lidar(ranges, max_range):
     """Ranges (m) -> [0, 1], 1 = clear (>= max_range), 0 = touching."""
     return np.clip(np.asarray(ranges, dtype=np.float32) / max(max_range, 1e-6), 0.0, 1.0)
+
+
+def corridor_features(ranges, max_range, n_beams):
+    """Derived corridor geometry the raw beams make hard for an MLP to read: normalized front /
+    front-left / front-right / left / right clearance, and the lateral centre-offset
+    e = (left - right) / (left + right) in [-1, 1] (which way there is more room). Directly targets
+    the 'person on one side + rack on the other -> no room that way' failure."""
+    ranges = np.asarray(ranges, dtype=np.float32)
+    ang = beam_angles(n_beams)
+    inv = 1.0 / max(max_range, 1e-6)
+
+    def sector_min(lo, hi):
+        m = (ang >= lo) & (ang < hi)
+        return float(ranges[m].min()) if bool(m.any()) else float(max_range)
+
+    front = sector_min(-math.pi / 6, math.pi / 6)
+    fl = sector_min(math.pi / 6, math.pi / 2)
+    fr = sector_min(-math.pi / 2, -math.pi / 6)
+    left = sector_min(math.pi / 3, 2 * math.pi / 3)
+    right = sector_min(-2 * math.pi / 3, -math.pi / 3)
+    e_center = (left - right) / (left + right + 1e-6)
+    return np.array([front * inv, fl * inv, fr * inv, left * inv, right * inv,
+                     float(np.clip(e_center, -1.0, 1.0))], dtype=np.float32)

@@ -38,23 +38,47 @@ def make_env(spec: dict):
     exp = C.load_experiment(spec.get("config_dir") or None)
     common = dict(obs_cfg=exp["observation"], limits=exp["action"],
                   reward_cfg=exp["reward"], safety_cfg=exp["safety"],
-                  safe_filter=spec.get("safe_filter", True))
-    scenarios = spec.get("scenarios") or []
+                  safe_filter=spec.get("safe_filter", True), dr=spec.get("dr"),
+                  human_wander=spec.get("human_wander", 0.0))
+    scenarios = spec.get("scenarios") or [spec["scenario"]]
+    environments = spec.get("environments") or [spec["environment"]]
+    difficulties = spec.get("difficulties") or [spec["difficulty"]]
+    sampler = None
     if spec["curriculum"]:
         cur = Curriculum(split="train", max_steps=spec["max_steps"])
         sampler = curriculum_sampler(cur, random.Random(spec["seed"]))
-        env = SocialNavEnv(episode_sampler=sampler, **common)
-    elif len(scenarios) > 1:
-        # Sample a scenario per episode so the policy trains on situations where barreling fails
-        # (crossing / head-on / sudden-stop / direction-change), not just `normal`. Train-split seeds.
+    elif len(scenarios) > 1 or len(environments) > 1 or len(difficulties) > 1:
+        # Sample environment + scenario + difficulty per episode so the policy sees varied layouts
+        # (factory/warehouse/office/...), interaction types (crossing/head-on/sudden-stop) and
+        # crowd densities instead of over-fitting one world. This is the generalization lever:
+        # a policy trained on many maps transfers to an unseen one far better than a single-map one.
         rng = random.Random(spec["seed"])
-        env_name, diff, ms = spec["environment"], spec["difficulty"], spec["max_steps"]
+        ms = spec["max_steps"]
         lo, hi = SEED_SPLITS["train"]
 
         def sampler(_prev_success):
-            sc = rng.choice(scenarios)
-            return (EpisodeConfig(environment=env_name, scenario=sc, difficulty=diff,
-                                  max_steps=ms), rng.randint(lo, hi - 1))
+            return (EpisodeConfig(environment=rng.choice(environments),
+                                  scenario=rng.choice(scenarios),
+                                  difficulty=rng.choice(difficulties), max_steps=ms),
+                    rng.randint(lo, hi - 1))
+
+    if sampler is not None and spec.get("require_feasible"):
+        # Reject-sample so every training episode has a collision-free solution (the oracle). Narrow
+        # maps' `normal` crowds make many episodes impossible; training on those feeds PPO noisy
+        # negative signal that destabilizes it (the 0.75->0.4 collapse). Skipping them keeps every
+        # map fair without faking geometry. is_feasible is lru_cached, so this is cheap.
+        from social_nav_rl.feasibility import is_feasible
+        _raw = sampler
+
+        def sampler(prev, _raw=_raw):                          # noqa: F811 - intentional wrap
+            ep, seed = _raw(prev)
+            for _ in range(40):
+                if is_feasible(ep.environment, ep.scenario, ep.difficulty, seed):
+                    break
+                ep, seed = _raw(prev)
+            return ep, seed
+
+    if sampler is not None:
         env = SocialNavEnv(episode_sampler=sampler, **common)
     else:
         ep = EpisodeConfig(environment=spec["environment"], scenario=spec["scenario"],
@@ -76,11 +100,15 @@ def _make_eval_stop_callback(base_cls):
         ``target_success`` or fails to improve for ``patience`` consecutive evals.
         """
 
-        def __init__(self, eval_env, seeds, best_path, target_success, patience,
-                     eval_freq_ts, save_meta_fn, stop_floor=0.0, frame_stack=1, verbose=1):
+        def __init__(self, eval_env, eval_plan, best_path, target_success, patience,
+                     eval_freq_ts, save_meta_fn, stop_floor=0.0, frame_stack=1, recurrent=False,
+                     verbose=1):
             super().__init__(verbose)
             self.eval_env = eval_env
-            self.seeds = list(seeds)
+            # eval_plan: list of (EpisodeConfig, seed) spanning the whole train distribution (all
+            # maps/scenarios), so "best" is chosen as a GENERALIST, not a single-scenario specialist.
+            self.eval_plan = list(eval_plan)
+            self.recurrent = recurrent          # RecurrentPPO needs stateful, per-episode prediction
             # Match training's frame stacking during eval, else the policy sees the wrong-size obs.
             self.stacker = None
             if frame_stack and frame_stack > 1:
@@ -102,13 +130,26 @@ def _make_eval_stop_callback(base_cls):
             self._no_improve = 0
 
         def _run_eval(self):
+            from social_nav_rl.env import MockBackend
             n_succ, rewards = 0, []
-            for s in self.seeds:
+            for ep_cfg, s in self.eval_plan:
+                # Point the eval env at this plan item's map/scenario, then run seed s.
+                self.eval_env.ep = ep_cfg
+                self.eval_env.backend = MockBackend(
+                    ep_cfg, self.eval_env.limits.dt, obs_cfg=self.eval_env.adapter.cfg,
+                    human_wander=self.eval_env._human_wander)
                 obs, _ = self.eval_env.reset(seed=s)
                 x = self.stacker.reset(obs) if self.stacker is not None else obs
                 done, ep_r, info = False, 0.0, {}
+                lstm_states = None
+                ep_start = np.ones((1,), dtype=bool)   # tell the LSTM a new episode begins
                 while not done:
-                    act, _ = self.model.predict(x, deterministic=True)
+                    if self.recurrent:
+                        act, lstm_states = self.model.predict(
+                            x, state=lstm_states, episode_start=ep_start, deterministic=True)
+                        ep_start = np.zeros((1,), dtype=bool)
+                    else:
+                        act, _ = self.model.predict(x, deterministic=True)
                     obs, r, term, trunc, info = self.eval_env.step(act)
                     ep_r += float(r)
                     done = term or trunc
@@ -117,7 +158,7 @@ def _make_eval_stop_callback(base_cls):
                 if ev.get("reached") and not ev.get("collision") and not ev.get("human_collision"):
                     n_succ += 1
                 rewards.append(ep_r)
-            return n_succ / max(1, len(self.seeds)), float(np.mean(rewards))
+            return n_succ / max(1, len(self.eval_plan)), float(np.mean(rewards))
 
         def _on_step(self):
             if self.num_timesteps < self._next_eval:
@@ -154,8 +195,21 @@ def _make_eval_stop_callback(base_cls):
 
 def main():
     ap = argparse.ArgumentParser(description="Train PPO RL social navigation")
-    ap.add_argument("--algorithm", default="ppo", choices=["ppo"])
+    ap.add_argument("--algorithm", default="ppo", choices=["ppo", "sac", "recurrent_ppo"],
+                    help="ppo (on-policy, parallel across --n-envs); sac (off-policy, far more "
+                         "sample-efficient, auto-tunes entropy so std shrinks as it learns; prefers "
+                         "few envs); recurrent_ppo (PPO with an LSTM - true memory of recent motion, "
+                         "the principled fix for unpredictable/partially-observed humans; needs "
+                         "sb3-contrib; don't combine with --frame-stack). Checkpoints are NOT "
+                         "interchangeable across algorithms (--init-model must match --algorithm).")
     ap.add_argument("--environment", default="urban")
+    ap.add_argument("--environments", default="",
+                    help="comma-separated environments sampled per episode (e.g. "
+                         "factory,warehouse,office,urban) so the policy generalizes across layouts "
+                         "instead of over-fitting one map. Eval still uses --environment.")
+    ap.add_argument("--difficulties", default="",
+                    help="comma-separated difficulties sampled per episode (e.g. easy,medium,hard) "
+                         "so the policy sees varied crowd density/speed. Eval uses --difficulty.")
     ap.add_argument("--scenario", default="normal")
     ap.add_argument("--scenarios", default="",
                     help="comma-separated scenarios sampled per episode during training (e.g. "
@@ -208,6 +262,22 @@ def main():
                     help="stop early once the eval success rate reaches this (the 'high score')")
     ap.add_argument("--patience", type=int, default=15,
                     help="stop early after this many evals with no improvement (above --stop-floor)")
+    ap.add_argument("--require-feasible", dest="require_feasible", action="store_true",
+                    help="train (and eval) only on episodes that have a collision-free solution "
+                         "(feasibility oracle). Skips impossible episodes - common in narrow maps' "
+                         "dense `normal` crowds - which otherwise feed PPO noisy negative signal and "
+                         "destabilize it. Makes multi-map training fair without altering geometry.")
+    ap.add_argument("--human-unpredictable", dest="human_wander", type=float, default=0.0,
+                    help="add smooth non-linear wander (metres of lateral amplitude, e.g. 0.3) to "
+                         "pedestrians so they don't move in straight predictable lines. Breaks the "
+                         "constant-velocity prediction and forces the policy to react to real motion, "
+                         "not extrapolate. 0 = off (scripted paths). Try 0.25-0.4.")
+    ap.add_argument("--domain-rand", dest="domain_rand", action="store_true",
+                    help="randomize robot dynamics (control latency + velocity-tracking noise + "
+                         "speed offset), lidar noise/dropout and crowd speed PER EPISODE, to close "
+                         "the mock->Gazebo transfer gap (mock ~1.0 vs Gazebo ~0.2 on crossing). "
+                         "Uses randomize.default_profile(); tune it from scripts/sysid.py. Training "
+                         "only - eval runs on nominal dynamics so the success rate stays comparable.")
     ap.add_argument("--no-safety", dest="no_safety", action="store_true",
                     help="train + eval-callback WITHOUT the safety supervisor rewriting actions, so "
                          "PPO learns from the action it actually executed (the supervisor throttling "
@@ -220,28 +290,61 @@ def main():
     args = ap.parse_args()
 
     try:
-        from stable_baselines3 import PPO
+        from stable_baselines3 import PPO, SAC
         from stable_baselines3.common.callbacks import BaseCallback, CheckpointCallback
         from stable_baselines3.common.vec_env import (
             DummyVecEnv, SubprocVecEnv, VecFrameStack)
     except ImportError:
         raise SystemExit("stable-baselines3 not installed. Run:\n"
                          "  pip install 'stable-baselines3>=2.2' gymnasium")
+    algo_registry = {"ppo": PPO, "sac": SAC}
+    if args.algorithm == "recurrent_ppo":
+        try:
+            from sb3_contrib import RecurrentPPO
+        except ImportError:
+            raise SystemExit("recurrent_ppo needs sb3-contrib. Run:\n  pip install 'sb3-contrib>=2.2'")
+        algo_registry["recurrent_ppo"] = RecurrentPPO
+    recurrent = args.algorithm == "recurrent_ppo"
 
     cfg_dir = args.config or C.config_dir()
-    ppo_kw = C.load_ppo_config(os.path.join(cfg_dir, "ppo.yaml"))
+    Algo = algo_registry[args.algorithm]
+    if args.algorithm in ("ppo", "recurrent_ppo"):
+        # RecurrentPPO takes the same on-policy hyperparameters as PPO; the LSTM is in the policy.
+        algo_kw = dict(C.load_ppo_config(os.path.join(cfg_dir, "ppo.yaml")))
+    else:
+        # SAC (off-policy) defaults tuned for the fast mock. gradient_steps=-1 does one update per
+        # collected transition regardless of --n-envs, so the sample-efficiency holds even if you
+        # run a few envs; SAC still prefers a small --n-envs. Override lr/ent via the CLI.
+        algo_kw = dict(buffer_size=300_000, learning_starts=5_000, batch_size=256, tau=0.005,
+                       gamma=0.99, train_freq=1, gradient_steps=-1, ent_coef="auto",
+                       learning_rate=3e-4)
     exp = C.load_experiment(args.config or None)
     scenario_list = [s.strip() for s in args.scenarios.split(",") if s.strip()]
-    if scenario_list:
-        from social_nav_tools.environments import SCENARIO_TYPES
+    env_list = [s.strip() for s in args.environments.split(",") if s.strip()]
+    diff_list = [s.strip() for s in args.difficulties.split(",") if s.strip()]
+    if scenario_list or env_list or diff_list:
+        from social_nav_tools.environments import (
+            DIFFICULTIES, ENVIRONMENT_NAMES, SCENARIO_TYPES)
         bad = [s for s in scenario_list if s not in SCENARIO_TYPES]
         if bad:
             raise SystemExit(f"unknown --scenarios {bad}; valid: {list(SCENARIO_TYPES)}")
+        bad = [e for e in env_list if e not in ENVIRONMENT_NAMES]
+        if bad:
+            raise SystemExit(f"unknown --environments {bad}; valid: {list(ENVIRONMENT_NAMES)}")
+        bad = [d for d in diff_list if d not in DIFFICULTIES]
+        if bad:
+            raise SystemExit(f"unknown --difficulties {bad}; valid: {list(DIFFICULTIES)}")
+    dr_cfg = None
+    if args.domain_rand:
+        from social_nav_rl.randomize import default_profile
+        dr_cfg = default_profile()
     specs = [{"config_dir": args.config or None, "curriculum": args.curriculum,
               "environment": args.environment, "scenario": args.scenario,
-              "scenarios": scenario_list,
+              "scenarios": scenario_list, "environments": env_list,
+              "difficulties": diff_list,
               "difficulty": args.difficulty, "max_steps": args.max_steps,
-              "safe_filter": not args.no_safety,
+              "safe_filter": not args.no_safety, "dr": dr_cfg,
+              "human_wander": args.human_wander, "require_feasible": args.require_feasible,
               "seed": args.seed + rank} for rank in range(max(1, args.n_envs))]
     fns = [partial(make_env, s) for s in specs]
     if args.n_envs > 1 and args.vec == "subproc":
@@ -274,20 +377,23 @@ def main():
 
     # CLI overrides (apply whether fresh or warm-started; a warm-start otherwise keeps the
     # checkpoint's hyperparameters, so this is how you anneal a fine-tune).
-    ppo_kw = dict(ppo_kw)
     if args.lr > 0:
-        ppo_kw["learning_rate"] = args.lr
+        algo_kw["learning_rate"] = args.lr
     if args.ent >= 0:
-        ppo_kw["ent_coef"] = args.ent
+        algo_kw["ent_coef"] = args.ent
     policy_kwargs = {}
     if args.net_arch:
         policy_kwargs["net_arch"] = [int(x) for x in args.net_arch.split(",") if x.strip()]
+    policy_name = "MlpLstmPolicy" if recurrent else "MlpPolicy"
+    if recurrent and frame_stack > 1:
+        print("note: --frame-stack with recurrent_ppo is redundant (the LSTM already gives memory); "
+              "consider --frame-stack 1 to save compute.")
 
     if args.init_model:
         # load WITH env (handles a different n_envs than the checkpoint); venv is already wrapped
-        # to the matching obs dim above.
-        model = PPO.load(args.init_model, env=venv, device=args.device,
-                         tensorboard_log=(args.tensorboard or None))
+        # to the matching obs dim above. Algo must match the checkpoint's algorithm.
+        model = Algo.load(args.init_model, env=venv, device=args.device,
+                          tensorboard_log=(args.tensorboard or None))
         if args.net_arch:
             print("note: --net-arch ignored with --init-model (architecture is fixed by the "
                   "checkpoint; set it on the fresh run instead).")
@@ -302,10 +408,10 @@ def main():
                   + (f" ent={args.ent}" if args.ent >= 0 else ""))
         print(f"warm-started from {args.init_model}{extras}")
     else:
-        model = PPO("MlpPolicy", venv, device=args.device, seed=args.seed,
-                    tensorboard_log=(args.tensorboard or None),
-                    verbose=0 if args.check else 1,
-                    policy_kwargs=(policy_kwargs or None), **ppo_kw)
+        model = Algo(policy_name, venv, device=args.device, seed=args.seed,
+                     tensorboard_log=(args.tensorboard or None),
+                     verbose=0 if args.check else 1,
+                     policy_kwargs=(policy_kwargs or None), **algo_kw)
 
     if args.check:
         obs = venv.reset()
@@ -320,20 +426,20 @@ def main():
     os.makedirs(args.out, exist_ok=True)
 
     def save_meta(path, steps):
-        CheckpointMeta(algorithm="ppo", environment=args.environment, split="train",
+        CheckpointMeta(algorithm=args.algorithm, environment=args.environment, split="train",
                        training_steps=int(steps), seed=args.seed,
                        reward_config=dict(exp["reward"].weights),
                        obs_config=vars(exp["observation"]),
                        curriculum={"enabled": bool(args.curriculum)},
-                       extra={"n_envs": args.n_envs, "ppo": ppo_kw}).save(path)
+                       extra={"n_envs": args.n_envs, "hparams": algo_kw}).save(path)
 
     callbacks = []
     if args.save_freq > 0:
         callbacks.append(CheckpointCallback(
             save_freq=max(1, args.save_freq // max(1, args.n_envs)),
-            save_path=args.out, name_prefix=f"ppo_{args.environment}"))
+            save_path=args.out, name_prefix=f"{args.algorithm}_{args.environment}"))
 
-    best_path = os.path.join(args.out, f"ppo_{args.environment}_{args.seed}_best.zip")
+    best_path = os.path.join(args.out, f"{args.algorithm}_{args.environment}_{args.seed}_best.zip")
     eval_env = None
     if not args.no_eval:
         eval_env = SocialNavEnv(
@@ -341,17 +447,40 @@ def main():
                              difficulty=args.difficulty, max_steps=args.max_steps),
             obs_cfg=exp["observation"], limits=exp["action"],
             reward_cfg=exp["reward"], safety_cfg=exp["safety"],
-            safe_filter=not args.no_safety)
-        lo, _ = SEED_SPLITS[args.eval_split]
-        seeds = list(range(lo, lo + max(1, args.n_eval_episodes)))
+            safe_filter=not args.no_safety, human_wander=args.human_wander)
+        lo, hi = SEED_SPLITS[args.eval_split]
+        n_eval = max(1, args.n_eval_episodes)
+        # Build the eval plan across the WHOLE training distribution (every map x scenario x
+        # difficulty), so `best` is selected as a generalist rather than a factory/normal specialist.
+        # Split n_eval episodes across the combos; feasibility-filter each so success reflects skill.
+        from social_nav_rl.feasibility import is_feasible
+        e_envs = env_list or [args.environment]
+        e_scen = scenario_list or [args.scenario]
+        e_diff = diff_list or [args.difficulty]
+        combos = [(e, sc, d) for e in e_envs for sc in e_scen for d in e_diff]
+        per = max(1, n_eval // max(1, len(combos)))
+        eval_plan = []
+        for (e, sc, d) in combos:
+            got = 0
+            for s in range(lo, min(hi, lo + 200)):    # cap the scan: a combo with ~no feasible
+                if not args.require_feasible or is_feasible(e, sc, d, s):  # seeds must not scan 10k
+                    eval_plan.append((EpisodeConfig(environment=e, scenario=sc, difficulty=d,
+                                                    max_steps=args.max_steps), s))
+                    got += 1
+                    if got >= per:
+                        break
+        eval_plan = eval_plan or [(EpisodeConfig(environment=args.environment,
+                                                 scenario=args.scenario, difficulty=args.difficulty,
+                                                 max_steps=args.max_steps), lo)]
+        print(f"eval: {len(eval_plan)} episodes across {len(combos)} map/scenario/difficulty combos")
         EvalStopCallback = _make_eval_stop_callback(BaseCallback)
         callbacks.append(EvalStopCallback(
-            eval_env, seeds, best_path, args.target_success, args.patience,
+            eval_env, eval_plan, best_path, args.target_success, args.patience,
             args.eval_freq, save_meta, stop_floor=args.stop_floor,
-            frame_stack=frame_stack))
+            frame_stack=frame_stack, recurrent=recurrent))
 
     model.learn(total_timesteps=args.timesteps, callback=callbacks or None)
-    final_path = os.path.join(args.out, f"ppo_{args.environment}_{args.seed}.zip")
+    final_path = os.path.join(args.out, f"{args.algorithm}_{args.environment}_{args.seed}.zip")
     model.save(final_path)
     save_meta(final_path, model.num_timesteps)
     venv.close()

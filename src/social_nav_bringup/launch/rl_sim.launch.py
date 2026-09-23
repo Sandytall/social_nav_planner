@@ -50,7 +50,7 @@ def _setup(context, *_):
         Node(package="social_nav_tools", executable="human_markers",
              name="human_markers", output="screen"),
         Node(package="rviz2", executable="rviz2", name="rviz2",
-             arguments=["-d", os.path.join(rviz_pkg, "rviz", "social_nav.rviz")],
+             arguments=["-d", os.path.join(rviz_pkg, "rviz", "rl_sim.rviz")],
              output="log", condition=IfCondition(lc("rviz"))),
     ]
 

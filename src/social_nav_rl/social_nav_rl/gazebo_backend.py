@@ -102,6 +102,17 @@ class GazeboBackend:
         return downsample_scan(list(m.ranges), m.angle_min, m.angle_increment,
                                n_beams=self.obs_cfg.n_lidar, max_range=self.obs_cfg.lidar_range)
 
+    def front_depth(self):
+        """Forward depth sector from the real /scan front cone, or None if disabled."""
+        if (not self.obs_cfg or not getattr(self.obs_cfg, "use_front_depth", False)
+                or self._scan is None):
+            return None
+        from social_nav_rl.perception import downsample_scan_front
+        m = self._scan
+        return downsample_scan_front(list(m.ranges), m.angle_min, m.angle_increment,
+                                     n_beams=self.obs_cfg.n_front, fov_deg=self.obs_cfg.front_fov,
+                                     max_range=self.obs_cfg.lidar_range)
+
     # -- backend interface -----------------------------------------------------
     def reset(self, seed):
         from social_nav_tools.environments import generate_scenario
