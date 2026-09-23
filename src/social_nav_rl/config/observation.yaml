@@ -1,0 +1,26 @@
+# RL observation configuration. Feature flags double as ablation switches: set one false to
+# zero out that feature group across every human block without touching code.
+n_humans: 5            # fixed number of human slots (nearest-N, zero-padded + masked)
+max_range: 8.0         # m: humans beyond this are dropped as irrelevant
+robot_radius: 0.45
+human_radius: 0.3
+use_velocity: true
+use_prediction: true
+use_uncertainty: true
+use_ttc: true
+use_social_zone: true
+use_group: true
+# Static-obstacle perception (down-sampled lidar). Lets the policy avoid walls/racks; computed by
+# ray-cast in the mock and from the real /scan in Gazebo (same beams). Set use_lidar:false to
+# reproduce the older obstacle-blind observation (e.g. to evaluate the pre-lidar 0.84 checkpoint).
+use_lidar: true
+n_lidar: 12
+lidar_range: 5.0
+# Derived corridor-geometry + crossing-conflict features (see ObsConfig). Cheap, stateless; help
+# the policy reason about "person one side + rack the other" and crossing timing.
+use_geometry: true
+# Higher-resolution forward depth sector (finer obstacle/gap sensing where the robot is heading) on
+# top of the 360-deg lidar. OFF by default; enabling changes the obs size, so it needs a fresh model.
+use_front_depth: false
+n_front: 12
+front_fov: 120.0

@@ -10,11 +10,12 @@ anything environment-specific: the environment provides the challenge, the plann
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Dict, List, Sequence, Tuple
+from dataclasses import dataclass
+from typing import Dict, Sequence, Tuple
 
+from social_nav_tools.world_obstacles import obstacles_for_env
 from social_nav_tools.pedestrian_model import (
-    BLOCKER, CROSSING, GROUP, HEAD_ON, MERGE, MIXED, SAME_DIRECTION, STOP_GO, TURNING, WALKING,
+    BLOCKER, CROSSING, GROUP, HEAD_ON, MIXED, SAME_DIRECTION, STOP_GO, TURNING, WALKING,
 )
 
 # ----------------------------------------------------------------------------------------
@@ -88,6 +89,9 @@ class Environment:
     crossing_north: float = 2.2                  # crossing route north end (env-specific)
     crossing_south: float = -3.0                 # crossing route south end
     dynamic_obstacles: bool = False              # hosts forklifts/carts/AMRs as obstacles
+    human_scale: float = 1.0                      # per-map crowd density (narrow corridors hold
+    #                                              fewer people; scales num_humans so feasibility
+    #                                              matches the wider maps instead of over-packing)
     scenarios: Tuple[str, ...] = SCENARIO_TYPES  # scenario types meaningful here
 
     def goal_xy(self, name: str = "") -> Tuple[float, float]:
@@ -104,7 +108,7 @@ ENVIRONMENTS: Dict[str, Environment] = {
         spawn_region=(1.0, 12.0, -1.0, 1.4), robot_start=(0.0, 0.0, 0.0),
         goals={"far": (9.0, 0.0), "near": (6.0, 0.0)}, default_goal="far",
         obstacles=(-1.0, 1.6, 3.5, 4.6, 7.5, 1.6, 13.0, 4.6),
-        crossing_x=5.5, dynamic_obstacles=True),
+        crossing_x=5.5, dynamic_obstacles=True, human_scale=0.5),   # narrow 2.4 m corridor
     "factory": Environment(
         name="factory", world="factory.world",
         spawn_region=(1.5, 9.0, -1.6, 1.6), robot_start=(0.0, 0.0, 0.0),
@@ -125,13 +129,15 @@ ENVIRONMENTS: Dict[str, Environment] = {
         goals={"corridor_end": (9.0, 0.0), "midway": (5.0, 0.0)}, default_goal="corridor_end",
         # Corridor-intruding furniture (nurse desk, reception, waiting bench).
         obstacles=(4.25, 0.95, 5.75, 1.55, 0.9, -1.55, 2.1, -0.95, 7.0, -1.5, 8.0, -1.1),
-        crossing_x=3.0, crossing_north=1.4, crossing_south=-1.4, dynamic_obstacles=True),
+        crossing_x=3.0, crossing_north=1.4, crossing_south=-1.4, dynamic_obstacles=True,
+        human_scale=0.6),   # narrow 2.8 m corridor + corridor furniture
     "office": Environment(
         name="office", world="office.world",
         spawn_region=(1.0, 9.0, -1.4, 1.4), robot_start=(0.0, 0.0, 0.0),
         goals={"far": (9.0, 0.0), "atrium": (6.0, 0.0)}, default_goal="far",
         obstacles=(0.8, -1.5, 2.4, -0.9),  # reception desk (edge of corridor)
-        crossing_x=3.0, crossing_north=1.4, crossing_south=-1.4, dynamic_obstacles=False),
+        crossing_x=3.0, crossing_north=1.4, crossing_south=-1.4, dynamic_obstacles=False,
+        human_scale=0.6),   # narrow 2.8 m corridor
     "plaza": Environment(
         name="plaza", world="plaza.world",
         spawn_region=(1.0, 9.0, -3.5, 3.5), robot_start=(0.0, 0.0, 0.0),
@@ -170,7 +176,8 @@ def generate_scenario(environment: str, scenario: str = NORMAL, difficulty: str 
     diff = DIFFICULTY[difficulty]
     profile, base_humans = SCENARIO_BASE[scenario]
 
-    humans = human_count if human_count is not None else _round_humans(base_humans, diff["human_mult"])
+    humans = (human_count if human_count is not None
+              else _round_humans(base_humans, diff["human_mult"] * env.human_scale))
     sensor = sensor_profile or diff["sensor"]
 
     num_robots = 3 if scenario == MULTI_ROBOT else 1
@@ -204,4 +211,7 @@ def generate_scenario(environment: str, scenario: str = NORMAL, difficulty: str 
         "num_robots": num_robots,
         "num_dynamic_obstacles": dyn,
         "pedestrian": pedestrian,
+        # Real static-obstacle footprints from the Gazebo world (racks/walls/machines), so the
+        # accelerated mock env matches what the robot's lidar sees in Gazebo. () if unresolved.
+        "world_obstacles": [list(b) for b in obstacles_for_env(env.world)],
     }

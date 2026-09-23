@@ -1,0 +1,12 @@
+# Safety-supervisor thresholds. These are HARD constraints the RL policy cannot override.
+max_lin_vel: 0.8
+max_ang_vel: 1.2
+max_lin_accel: 1.0
+max_ang_accel: 2.5
+dt: 0.05
+ttc_stop: 1.0        # s: below -> emergency stop
+ttc_slow: 3.0        # s: below -> proportional slow-down
+clearance_stop: 0.4  # m: below -> emergency stop
+clearance_slow: 1.0  # m: below -> proportional slow-down
+human_timeout: 1.0   # s: staler human data -> cautious cap
+cautious_speed: 0.25

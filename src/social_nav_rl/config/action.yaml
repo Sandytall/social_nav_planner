@@ -1,0 +1,7 @@
+# Robot velocity/acceleration envelope the normalized policy action is mapped into.
+max_lin_vel: 0.8
+min_lin_vel: 0.0     # 0 = forward-only; set negative to allow reversing
+max_ang_vel: 1.2
+max_lin_accel: 1.0
+max_ang_accel: 2.5
+dt: 0.05
