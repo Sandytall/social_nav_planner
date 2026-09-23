@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, List, Sequence, Tuple
 
+from social_nav_tools.world_obstacles import obstacles_for_env
 from social_nav_tools.pedestrian_model import (
     BLOCKER, CROSSING, GROUP, HEAD_ON, MERGE, MIXED, SAME_DIRECTION, STOP_GO, TURNING, WALKING,
 )
@@ -204,4 +205,7 @@ def generate_scenario(environment: str, scenario: str = NORMAL, difficulty: str 
         "num_robots": num_robots,
         "num_dynamic_obstacles": dyn,
         "pedestrian": pedestrian,
+        # Real static-obstacle footprints from the Gazebo world (racks/walls/machines), so the
+        # accelerated mock env matches what the robot's lidar sees in Gazebo. () if unresolved.
+        "world_obstacles": [list(b) for b in obstacles_for_env(env.world)],
     }
