@@ -5,7 +5,7 @@ is rejected/modified/braked/stopped when it would be unsafe, mirroring the class
 safety states. Each intervention is recorded (kind + reason) so failures are explainable and
 the intervention rate is measurable. Pure and unit-testable; the ROS node feeds it live signals.
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List
 
 import numpy as np

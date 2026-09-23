@@ -10,12 +10,12 @@ anything environment-specific: the environment provides the challenge, the plann
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Dict, List, Sequence, Tuple
+from dataclasses import dataclass
+from typing import Dict, Sequence, Tuple
 
 from social_nav_tools.world_obstacles import obstacles_for_env
 from social_nav_tools.pedestrian_model import (
-    BLOCKER, CROSSING, GROUP, HEAD_ON, MERGE, MIXED, SAME_DIRECTION, STOP_GO, TURNING, WALKING,
+    BLOCKER, CROSSING, GROUP, HEAD_ON, MIXED, SAME_DIRECTION, STOP_GO, TURNING, WALKING,
 )
 
 # ----------------------------------------------------------------------------------------

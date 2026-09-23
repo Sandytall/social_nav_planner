@@ -23,7 +23,7 @@ from rclpy.parameter import Parameter
 from sensor_msgs.msg import LaserScan
 
 from social_nav_rl import ros_convert as RC
-from social_nav_rl.observation import Human, Prediction
+from social_nav_rl.observation import Prediction
 
 try:
     from social_nav_msgs.msg import HumanArray, HumanPredictionArray

@@ -1,0 +1,5 @@
+policy,environment,difficulty,scenario,episodes,success,collision,human_collision,timeout,min_clearance_m,min_ttc_s,avg_speed,nav_time_s,path_length_m,oscillations,latency_p95_ms
+rl,warehouse,medium,normal,15,0.4,0.0,0.6,0.0,0.836,0.33,0.686,10.14,6.87,0,0.21792899860884063
+rl,warehouse,medium,crossing,15,0.0,1.0,0.0,0.0,1.15,1.057,0.751,12.65,9.5,0,0.2186729998356895
+straight,warehouse,medium,normal,15,0.467,0.0,0.533,0.0,0.82,0.356,0.705,9.71,6.96,0,0.007808598456904293
+straight,warehouse,medium,crossing,15,1.0,0.0,0.0,0.0,1.069,1.057,0.742,11.35,8.42,0,0.00770399856264703

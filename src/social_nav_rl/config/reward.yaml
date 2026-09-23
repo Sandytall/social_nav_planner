@@ -28,11 +28,8 @@ weights:
   social_zone: -2.0
   path_efficiency: -0.2
   time: -0.03
-  # -0.2 (mild): a small bump over the original -0.1 to reduce jerk without over-constraining
-  # maneuvering. -0.4 regressed medium hard (best 0.50 -> 0.20: the policy couldn't turn enough to
-  # avoid), so keep smoothness gentle.
-  smoothness: -0.2
-  angular_smoothness: -0.2
+  smoothness: -0.1
+  angular_smoothness: -0.1
   stopping: -0.1
   oscillation: -0.2
   group: -0.5

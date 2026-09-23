@@ -2,9 +2,6 @@
 max_lin_vel: 0.8
 min_lin_vel: 0.0     # 0 = forward-only; set negative to allow reversing
 max_ang_vel: 1.2
-# max_ang_accel lowered 2.5 -> 1.5 (2026-09-23): caps how fast the steering rate can change, which
-# smooths the jerky turning seen in Gazebo (an execution effect, not policy oscillation - mock
-# oscillations were 0). Applied at eval too, so it smooths existing checkpoints without retraining.
 max_lin_accel: 1.0
-max_ang_accel: 1.5
+max_ang_accel: 2.5
 dt: 0.05
