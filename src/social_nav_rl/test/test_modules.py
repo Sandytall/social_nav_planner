@@ -9,8 +9,47 @@ from social_nav_rl.checkpoint import CheckpointMeta, load_meta
 from social_nav_rl.curriculum import SEED_SPLITS, Curriculum
 from social_nav_rl.hybrid import HybridConfig, HybridController
 from social_nav_rl.latency import LatencyMeter
-from social_nav_rl.policies import ConstantPolicy, StraightToGoalPolicy
+from social_nav_rl.observation import HUMAN_FEATURES, ROBOT_FEATURES
+from social_nav_rl.policies import (
+    ConstantPolicy, FrameStacker, SocialForcePolicy, StraightToGoalPolicy)
 from social_nav_rl.replay import FailureReplay, load
+
+
+def _obs_with_human(hx, hy, goal_x=1.0, goal_y=0.0, n_humans=5):
+    """Build a raw env observation (adapter features + mask) with one human at robot-frame (hx,hy)."""
+    size = ROBOT_FEATURES + n_humans * HUMAN_FEATURES
+    obs = np.zeros(size + n_humans, dtype=np.float32)
+    obs[2], obs[3] = goal_x, goal_y            # goal in robot frame
+    obs[ROBOT_FEATURES + 0] = hx               # human 0 x (robot frame)
+    obs[ROBOT_FEATURES + 1] = hy               # human 0 y
+    obs[size + 0] = 1.0                         # mask: human 0 is real
+    return obs
+
+
+def test_framestacker_matches_sb3_ordering():
+    """Newest frame in the last slot; zero-filled on reset; roll-left on push."""
+    fs = FrameStacker(n_stack=3, obs_dim=2)
+    out = fs.reset(np.array([1.0, 1.0]))
+    assert np.allclose(out, [0, 0, 0, 0, 1, 1])          # only last slot filled
+    out = fs.push(np.array([2.0, 2.0]))
+    assert np.allclose(out, [0, 0, 1, 1, 2, 2])          # newest last, older shifts left
+    out = fs.push(np.array([3.0, 3.0]))
+    assert np.allclose(out, [1, 1, 2, 2, 3, 3])
+    assert np.allclose(fs.reset(np.array([9.0, 9.0])), [0, 0, 0, 0, 9, 9])  # reset clears
+
+
+def test_social_force_action_valid_and_seeks_goal():
+    pol = SocialForcePolicy()
+    a = pol.act(_obs_with_human(hx=5.0, hy=0.0, goal_x=1.0, goal_y=0.0))  # human far ahead
+    assert a.shape == (2,) and -1.0 <= a[0] <= 1.0 and -1.0 <= a[1] <= 1.0
+    assert a[0] > 0.0                                     # moves forward toward the goal
+
+
+def test_social_force_repels_from_near_human():
+    pol = SocialForcePolicy()
+    # human close on the left -> net force should steer right (negative w)
+    a = pol.act(_obs_with_human(hx=0.6, hy=0.6, goal_x=1.0, goal_y=0.0))
+    assert a[1] < 0.0
 
 
 # --- curriculum ---

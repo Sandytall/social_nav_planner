@@ -26,6 +26,7 @@ setup(
             # message if those are missing.
             "social-nav-rl-train = social_nav_rl.train:main",
             "social-nav-rl-eval = social_nav_rl.evaluate:main",
+            "social-nav-rl-ablate = social_nav_rl.ablation:main",
         ],
     },
 )
